@@ -156,6 +156,9 @@ class Spec2():
 class Spec1():
     """
     Class for 1D spectra. Array shape is temporal series for a list of points.
+        Example
+        Sp1 = Spec1()
+        Sp1.f = np.linspace(0.03,.3,100)
     """
     
     def __init__(self):
