@@ -38,6 +38,47 @@ __version__ = "$Revision: $"
 import numpy as np
 import datetime
 debug = False
+
+def directional_spreading(dirs,pdir,ms,units='deg'):
+
+    """
+    Calculate directional spreading. 
+    cdir = directional_spreading(dirs,pdir,ms,units='deg')
+    where for example with pdir = 135
+    dirs = np.asanyarray([0, 45, 60] + list(90+np.arange(0,19)*5.) + [210,] + list(180+np.arange(1,5)*45.))
+     
+    """
+    from math import gamma
+    dirs = np.asarray(dirs) # also accept list
+
+    if units=='deg':
+        dirs = dirs*np.pi/180
+        pdir = pdir*np.pi/180
+    elif units=='rad':
+        dirs = dirs + 0. # ensure real
+        pass
+    else:
+        raise('unknown units')
+
+    A1 = (2.**ms) * (gamma(ms/2+1))**2 / (np.pi * gamma(ms+1))
+    cdir = dirs*0
+    for i,v in enumerate(dirs):
+        acos = np.cos((dirs[i] - pdir))
+        if acos > 0:
+            cdir[i] = A1*np.max(acos**ms, 1e-10)
+    if units=='deg':
+        cdir = cdir*np.pi/180
+    elif units=='rad':
+        pass
+    else:
+        raise('unknown units')    
+        
+    # check for ill-sampling
+    intz = np.trapz(cdir,dirs)*180/np.pi
+    if not(abs(intz-1)< 1e-6):
+        print('integral not 1 for ms=',ms,':',intz) 
+
+    return cdir
    
 class Spec2():
     """
@@ -77,6 +118,8 @@ class Spec2():
         
    #def Tmij(self):
    #TO DO calculate period based on various spectral moments
+   
+   
     
     def Hm0(self):
         """
@@ -171,14 +214,20 @@ class Spec1():
             s = np.ones(f.size)*sa
             s[f > fpeak] = sb
             return s
-
+        # Pierson-Moskowitz
+        
         if method=='Yamaguchi':
             alpha = 1/(0.06533*gamma**0.8015 + 0.13467)/16; # Yamaguchi (1984), used in SWAN
         elif method=='Goda':
             alpha = 1/(0.23+0.03*gamma-0.185*(1.9+gamma)**-1)/16; # Goda
 
         pm  = alpha*Hm0**2*Tp**-4*f**-5*np.exp(-1.25*(Tp*f)**-4);
+        
+        # apply JONSWAP shape
+        
         E = pm*gamma**np.exp(-0.5*(Tp*f-1)**2./sigma(f,1/Tp,sa,sb)**2);
+        
+        #E(np.isnan(E))=0
 
         if normalize:
             corr = Hm0**2/(16*np.trapz(E,f))
