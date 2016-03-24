@@ -105,16 +105,27 @@ class Spec2():
         self.direction       = []
         self.direction_units = '' # implicit directiontype: degrees_north or degrees_true, radians??      
         
-        self.energy          = np.asarray([[[[]]]]) # [t,xy,f,dir] # last dimension 'dir' extra wrt Spec1
+        self.energy          = np.asarray([[[[]]]]) # [t,xy,f,dir] or [xy,f,dir] or [f,dir] # last dimension 'dir' extra wrt Spec1
         self.energy_units    = ''
 
         #self.__dict__.update(kwargs)    
         
     def __repr__(self):
+    
+        if   len(self.energy.shape)==2:
+            txt = '<Spectrum2D ' + ' shape:[nt: 0' + \
+            ',nx: 0 '+ ',nf:'+str(self.energy.shape[0])+ \
+            ',nd:'+str(self.energy.shape[1]) + ']: "'+self.source+'">'
+        elif len(self.energy.shape)==3:
+            txt = '<Spectrum2D ' + ' shape:[nt: 0' + \
+            ',nx:'+str(self.energy.shape[0])+ ',nf:'+str(self.energy.shape[1])+ \
+            ',nd:'+str(self.energy.shape[2]) + ']: "'+self.source+'">'        
+        elif len(self.energy.shape)==4:
+            txt = '<Spectrum2D ' + ' shape:[nt:' + str(self.energy.shape[0])+ \
+            ',nx:'+str(self.energy.shape[1])+ ',nf:'+str(self.energy.shape[2])+ \
+            ',nd:'+str(self.energy.shape[3]) + ']: "'+self.source+'">'        
 
-        return '<Spectrum2D ' + ' shape:[nt:' + str(self.energy.shape[0])+ \
-        ',nx:'+str(self.energy.shape[1])+ ',nf:'+str(self.energy.shape[2])+ \
-        ',nd:'+str(self.energy.shape[3]) + ']: "'+self.source+'">'
+        return txt
         
    #def Tmij(self):
    #TO DO calculate period based on various spectral moments
@@ -162,23 +173,38 @@ class Spec2():
         for iff,v in enumerate(self.f):
             cdir = directional_spreading(dirs,pdir,ms) # ms[iff]
             self.energy[iff,:] = cdir*self.energy[iff,:];        
-            
         
         return self
         
     #@static
     def plot(self,fname,it=0,ix=0):        
         """
+        plot 2D spectrum to file
         """ 
+        
+        f = np.tile(self.f        ,[len(self.direction),1]).T
+        d = np.tile(self.direction,[len(self.f),1])
+        fx,lx = f*np.cos(90-d*np.pi/180),'f'
+        fy,ly = f*np.sin(90-d*np.pi/180),'f'
+        
+        #fx,lx = self.direction,'direction'
+        #fy,ly = self.f        ,'f'
         
         import matplotlib.pyplot as plt
         fig=plt.figure()
         fig.set_figwidth(10)
         ax = plt.axes([0.15,.15,0.8,0.8])
-        ax.set_xlabel('direction')
-        ax.set_ylabel('f')
-        plt.pcolormesh(self.direction,self.f,self.energy[it,ix,:,:])        
+        ax.set_xlabel(lx)
+        ax.set_ylabel(ly)
+        if   len(self.energy.shape)==2:        
+            plt.pcolormesh(fx,fy,self.energy[:,:])        
+        elif   len(self.energy.shape)==3:        
+            plt.pcolormesh(fx,fy,self.energy[ix,:,:])        
+        elif   len(self.energy.shape)==4:        
+            plt.pcolormesh(fx,fy,self.energy[it,ix,:,:])        
         ax.set_title('[' + str(self.lat) + ','+ str(self.lon) + ']')
+        plt.axis('equal')
+        
         plt.savefig(fname, fontsize=7, dpi=400)
         plt.close()             
 
@@ -207,7 +233,7 @@ class Spec1():
         self.f               = [] # always Hz
         self.ftype           = []
         
-        self.direction       = np.asarray([[[]]]) # [t,xy,f]
+        self.direction       = np.asarray([[[]]]) # [t,xy,f] or [xy,f] or [f]
         self.direction_units = '' # implicit directiontype: degrees_north or degrees_true
         
         self.energy          = np.asarray([[[]]]) # [t,xy,f] # last dimension 'f' extra wrt Spec1
@@ -220,7 +246,15 @@ class Spec1():
         
     def __repr__(self):
         
-        return '<Spectrum1D ' + ' shape:[nt:' + str(self.energy.shape[0])+ ',nx:'+str(self.energy.shape[1])+ ',nf:'+str(self.energy.shape[2]) + ']: "'+self.source+'">'
+        if   len(self.energy.shape)==1:
+            txt = '<Spectrum1D ' + ' shape:[nt: 0' + ',nx: 0'+ ',nf:'+str(self.energy.shape[0]) + ']: "'+self.source+'">'
+        elif   len(self.energy.shape)==2:
+            txt = '<Spectrum1D ' + ' shape:[nt: 0' + ',nx:'+str(self.energy.shape[0])+ ',nf:'+str(self.energy.shape[1]) + ']: "'+self.source+'">'
+        elif len(self.energy.shape)==3:
+            txt = '<Spectrum1D ' + ' shape:[nt:' + str(self.energy.shape[0])+ ',nx:'+str(self.energy.shape[1])+ ',nf:'+str(self.energy.shape[2]) + ']: "'+self.source+'">'        
+        
+        return txt
+        
         
    #def Tmij(self):
    #TO DO calculate period based on various spectral moments
@@ -290,18 +324,23 @@ class Spec1():
     #@static
     def plot(self,fname,it=0,ix=0):        
         """
+        plot 1D spectrum to file
         """ 
         
         import matplotlib.pyplot as plt
         fig=plt.figure()
         fig.set_figwidth(10)
         ax = plt.axes([0.15,.15,0.8,0.8])
-        plt.plot(self.f,self.energy[it,ix,:])
+        if   len(self.energy.shape)==1:
+            plt.plot(self.f,self.energy[:])
+        elif   len(self.energy.shape)==2:
+            plt.plot(self.f,self.energy[ix,:])
+        elif   len(self.energy.shape)==3:
+            plt.plot(self.f,self.energy[it,ix,:])
         ax.set_xlabel('f [Hz]')
         ax.set_ylabel('E [' + self.energy_units + ']')
         ax.set_title('[' + str(self.lat) + ','+ str(self.lon) + ']')
         
-        ax.set_xlim(0,np.max(self.f))
         plt.savefig(fname, fontsize=7, dpi=400)
         plt.close()          
 
