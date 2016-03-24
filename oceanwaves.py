@@ -103,7 +103,7 @@ class Spec2():
         self.ftype           = []
         
         self.direction       = []
-        self.direction_units = '' # implicit directiontype: degrees_north or degrees_true        
+        self.direction_units = '' # implicit directiontype: degrees_north or degrees_true, radians??      
         
         self.energy          = np.asarray([[[[]]]]) # [t,xy,f,dir] # last dimension 'dir' extra wrt Spec1
         self.energy_units    = ''
@@ -118,7 +118,6 @@ class Spec2():
         
    #def Tmij(self):
    #TO DO calculate period based on various spectral moments
-   
    
     
     def Hm0(self):
@@ -136,6 +135,36 @@ class Spec2():
             print('unknown units:"',self.energy_units,'"')
         
         return 4*np.sqrt(m0)
+        
+    #@static
+    def from_jonswap(dirs,f,Hm0,Tp,pdir,ms,
+        g         = 9.81,
+        gamma     = 3.3, 
+        method    = 'Yamaguchi', 
+        normalize = True,
+        sa        = 0.07,
+        sb        = 0.09):
+        """
+        Generate 2D JONSWAP spectrum
+        Sp2 = swan.Spec1(direction,f,Hm0,Tp,pdir, ms,<kwargs>)
+        
+        """
+
+        
+        self = Spec2()
+        self.f = f        
+        self.direction = dirs      
+        
+        Sp1 = Spec1.from_jonswap(self.f, Hm0, Tp)
+        self.energy_units = 'm2/Hz/deg'
+        #E = np.zeros([len(f), len(d)])+1e-9
+        self.energy = np.tile(Sp1.energy,[len(self.direction),1]).T
+        for iff,v in enumerate(self.f):
+            cdir = directional_spreading(dirs,pdir,ms) # ms[iff]
+            self.energy[iff,:] = cdir*self.energy[iff,:];        
+            
+        
+        return self
         
     #@static
     def plot(self,fname,it=0,ix=0):        
@@ -196,7 +225,8 @@ class Spec1():
    #def Tmij(self):
    #TO DO calculate period based on various spectral moments
    
-    def from_jonswap(self,Hm0,Tp,
+    #@static
+    def from_jonswap(f,Hm0,Tp,
         g         = 9.81,
         gamma     = 3.3, 
         method    = 'Yamaguchi', 
@@ -204,12 +234,12 @@ class Spec1():
         sa        = 0.07,
         sb        = 0.09):
         """
-        Generate JONSWAP spectrum
-        S = swan.Spec1(Hm0,Tp)
+        Generate 1D JONSWAP spectrum
+        Sp1 = swan.Spec1(f,Hm0,Tp,<kwargs>)
         
         """
         
-        f = self.f
+        self = Spec1()
         
         # method    = 'Yamaguchi'; # 'Goda'        
 
@@ -236,11 +266,11 @@ class Spec1():
             corr = Hm0**2/(16*np.trapz(E,f))
             E = E*corr
             
+        self.f = f
         self.energy = E
         self.energy_units = 'm2/Hz'  
 
-        return self.energy
-
+        return self
 
     def Hm0(self):
         """
