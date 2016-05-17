@@ -146,6 +146,73 @@ class Spec2():
             print('unknown units:"',self.energy_units,'"')
         
         return 4*np.sqrt(m0)
+
+    def Tm01(self):
+        """
+        Integrate Hm0 (Hs) from wave spectra (using trapz rule along last dimension.)
+        S = swan.Spec2()
+        S.Tm01()
+        """
+    
+        if self.energy_units[0:9] == 'm2/Hz/deg': # deg, degr, degree
+            # np.abs: descending directions lead to negs
+            m0 = np.trapz(np.abs(np.trapz(self.energy,self.direction)),self.f, axis=-1) # int along last dimension
+            m1 = np.trapz(np.abs(np.trapz(self.energy,self.direction))*self.f,self.f, axis=-1) # int along last dimension
+            Tm = m0/m1
+        else:
+            Tm = None
+            print('unknown units:"',self.energy_units,'"')
+        
+        return Tm
+
+
+    def Tm02(self):
+        """
+        Integrate Hm0 (Hs) from wave spectra (using trapz rule along last dimension.)
+        S = swan.Spec2()
+        S.Tm02()
+        """
+    
+        if self.energy_units[0:9] == 'm2/Hz/deg': # deg, degr, degree
+            # np.abs: descending directions lead to negs
+            m0 = np.trapz(np.abs(np.trapz(self.energy,self.direction)),self.f, axis=-1) # int along last dimension
+            m2 = np.trapz(np.abs(np.trapz(self.energy,self.direction))*self.f**2,self.f, axis=-1) # int along last dimension
+            Tm = np.sqrt(m0/m2)
+        else:
+            Tm = None
+            print('unknown units:"',self.energy_units,'"')
+        
+        return Tm
+
+    def Tp(self):
+        """
+        Get peak period.
+        S = swan.Spec2()
+        S.Tp()
+        """
+    
+        if self.energy_units[0:9] == 'm2/Hz/deg': # deg, degr, degree
+            Tp=1/self.f[np.argmax(np.max(self.energy,axis=-1))]
+        else:
+            Tp = None
+            print('unknown units:"',self.energy_units,'"')
+        
+        return Tp    
+
+    def pdir(self):
+        """
+        Get peak period.
+        S = swan.Spec2()
+        S.pdir()
+        """
+    
+        if self.energy_units[0:9] == 'm2/Hz/deg': # deg, degr, degree
+            pdir = self.direction[np.argmax(np.max(self.energy,axis=-2))]
+        else:
+            pdir = None
+            print('unknown units:"',self.energy_units,'"')
+        
+        return pdir         
         
     #@static
     def from_jonswap(dirs,f,Hm0,Tp,pdir,ms,
@@ -177,7 +244,7 @@ class Spec2():
         return self
         
     #@static
-    def plot(self,fname,it=0,ix=0):        
+    def plot(self,fname=None,it=0,ix=0):        
         """
         plot 2D spectrum to file
         """ 
@@ -191,8 +258,9 @@ class Spec2():
         #fy,ly = self.f        ,'f'
         
         import matplotlib.pyplot as plt
-        fig=plt.figure()
-        fig.set_figwidth(10)
+        if not fname is None:
+            fig=plt.figure()
+            fig.set_figwidth(10)
         ax = plt.axes([0.15,.15,0.8,0.8])
         ax.set_xlabel(lx)
         ax.set_ylabel(ly)
@@ -205,8 +273,11 @@ class Spec2():
         ax.set_title('[' + str(self.lat) + ','+ str(self.lon) + ']')
         plt.axis('equal')
         
-        plt.savefig(fname, fontsize=7, dpi=400)
-        plt.close()             
+        if not fname is None:
+            plt.savefig(fname, fontsize=7, dpi=400)
+            plt.close()
+        else:
+            return ax
 
 class Spec1():
     """
@@ -321,15 +392,70 @@ class Spec1():
         
         return 4*np.sqrt(m0)
 
+
+    def Tm01(self):
+        """
+        Integrate Hm0 (Hs) from wave spectra (using trapz rule along last dimension.)
+        S = swan.Spec1()
+        S.Tm01()
+        """
+    
+        if self.energy_units[0:9] == 'm2/Hz':
+            # np.abs: descending directions lead to negs
+            m0 = np.trapz(self.energy,self.f       , axis=-1) # int along last dimension
+            m1 = np.trapz(self.energy*self.f,self.f, axis=-1) # int along last dimension
+            Tm = m0/m1
+        else:
+            Tm = None
+            print('unknown units:"',self.energy_units,'"')
+        
+        return Tm
+
+
+    def Tm02(self):
+        """
+        Integrate Hm0 (Hs) from wave spectra (using trapz rule along last dimension.)
+        S = swan.Spec1()
+        S.Tm02()
+        """
+    
+        if self.energy_units[0:9] == 'm2/Hz':
+            # np.abs: descending directions lead to negs
+            m0 = np.trapz(self.energy,self.f          , axis=-1) # int along last dimension
+            m2 = np.trapz(self.energy*self.f**2,self.f, axis=-1) # int along last dimension
+            Tm = np.sqrt(m0/m2)
+        else:
+            Tm = None
+            print('unknown units:"',self.energy_units,'"')
+        
+        return Tm
+
+
+    def Tp(self):
+        """
+        Get peak period.
+        S = swan.Spec1()
+        S.Tp()
+        """
+    
+        if self.energy_units[0:9] == 'm2/Hz':
+            Tp = 1/self.f[np.argmax(self.energy)]
+        else:
+            Tp = None
+            print('unknown units:"',self.energy_units,'"')
+        
+        return Tp        
+
     #@static
-    def plot(self,fname,it=0,ix=0):        
+    def plot(self,fname=None,it=0,ix=0):        
         """
         plot 1D spectrum to file
         """ 
         
         import matplotlib.pyplot as plt
-        fig=plt.figure()
-        fig.set_figwidth(10)
+        if not fname is None:
+            fig=plt.figure()
+            fig.set_figwidth(10)
         ax = plt.axes([0.15,.15,0.8,0.8])
         if   len(self.energy.shape)==1:
             plt.plot(self.f,self.energy[:])
@@ -341,8 +467,11 @@ class Spec1():
         ax.set_ylabel('E [' + self.energy_units + ']')
         ax.set_title('[' + str(self.lat) + ','+ str(self.lon) + ']')
         
-        plt.savefig(fname, fontsize=7, dpi=400)
-        plt.close()          
+        if not fname is None:
+            plt.savefig(fname, fontsize=7, dpi=400)
+            plt.close()
+        else:
+            return ax
 
         
 class Spec0():
@@ -369,6 +498,7 @@ class Spec0():
         self.Tp              = np.asarray([[]])
         self.Tm01            = np.asarray([[]])
         self.Tm02            = np.asarray([[]])
+        self.pdir            = np.asarray([[]])
 
         #self.__dict__.update(kwargs)     
 
