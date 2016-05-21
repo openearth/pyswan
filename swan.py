@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Module for handling SWAN input/output
+Module for handling SWAN input/output, using oceanwwaves package:
+>> import oceanwaves as ow
   
 """
 
@@ -37,7 +38,7 @@ __version__ = "$Revision: $"
 
 import numpy as np
 import datetime
-import oceanwaves as spectrum
+import oceanwaves as ow
 debug = False
    
 #@static
@@ -112,12 +113,11 @@ def from_file2D(f,source='from_swan'):
     Matrix 'energy' has 4 dimensions:
     [time x locations x frequencies x directions]
     
-    S = spectrum.Spec2()
     f = fopen(r'c:\temp\myfile.spc')
-    S.from_swan(f,source='myfile.spc') # optionally remember source
+    S2 = sean.from_swan(f,source='myfile.spc') # optionally remember source
     f.close()
     """           
-    self = spectrum.Spec2()
+    self = ow.Spec2()
     
     D, timecoding = from_swan_header(f)
     for k in D.keys():
@@ -212,13 +212,12 @@ def from_file1D(f,source='from_swan'):
     Matrices 'energy','direction','spreading' have 3 dimensions:
     [time x locations x frequencies]
     
-    S = spectrum.Spec1()
     f = fopen(r'c:\temp\myfile.s1d')
-    S.from_file1D(f,source='myfile.s1d') # optionally remember source
+    S1 = swan.from_file1D(f,source='myfile.s1d') # optionally remember source
     f.close()
     """   
 
-    self = spectrum.Spec1()
+    self = ow.Spec1()
     
     D, timecoding = from_swan_header(f)
     for k in D.keys():
@@ -302,7 +301,7 @@ def to_file1D(self,f):
     """
     Save 1D spectral series file to SWAN spectral file/buffer.
     
-    S1 = spectrum.Spec1() 
+    S1 = ow.Spec1() 
     # fill S1
     f = fopen(r'c:\temp\newfile.s1d')
     S1.to_file1D(f)
@@ -370,6 +369,85 @@ def to_file1D(self,f):
                 f.writelines('{:f} {:} {:f} \n'.format(self.energy[it,ix,ifr],self.direction[it,ix,ifr],self.spreading[it,ix,ifr]))
                 
     return
+    
+#@static
+def to_file0D(self,f):
+    """
+    Save paramatetric tiemseries to SWAN TPAR file.
+    
+    S0 = ow.Spec0() 
+    # fill S1
+    f = fopen(r'c:\temp\newfile.tpar')
+    S0.to_file1D(f)
+    f.close()        
+    
+    A TPar file has 5 columns where we use CAPITAL choices:
+    
+        Time (ISO-notation), 
+        Hs, 
+        Period (average or PEAK PERIOD depending on the choice given in command BOUND SHAPE), 
+        Peak Direction (NAUTICAL or Cartesian, depending on command SET), 
+        Directional spread (in degrees or as POWER OF COS depending on the choice given in command BOUND SHAPE).
+    
+    """          
+
+    # write actual meaning to file, instead of relying on input file
+    # TPAR file can not have a header, but adding it after keyword TPAR works
+    f.writelines('TPAR $yyyymmdd.HHMMSS Hs Tp pdir ms\n')
+    if type(self.Hs) is type(1.) or type(self.Hs) is type(1):
+        f.writelines(datetime.datetime.strftime(self.t,'%Y%m%d.%H%M%S')+' '+
+        str(self.Hs)+' '+
+        str(self.Tp)+' '+
+        str(self.pdir)+' '+
+        str(self.ms) + '\n') 
+    else:
+        for i in range(len(self.t)):
+            #print(i)
+            f.writelines(str(datetime.datetime.strftime(self.t[i],'%Y%m%d.%H%M%S')) + ' '+
+                         str(self.Hs[i])+' '+
+                         str(self.Tp[i])+' '+
+                         str(self.pdir[i])+' '+
+                         str(self.ms[i])+'\n')
+            #datetime.datetime.strftime(self.t[i],'%Y%m%d.%H%M%S')+' '+
+    
+    
+def from_file0D(f,source='from_swan'):
+    """
+    Load paramatetric tiemseries from SWAN TPAR file.
+    
+    f = fopen(r'c:\temp\myfile.spc')
+    S0 = swan.from_swan(f,source='myfile.spc') # optionally remember source
+    f.close()
+    """ 
+    
+    self = ow.Spec0()
+
+    raw = '$'
+    while raw.strip()[0]=='$':
+        raw = f.readline()
+    
+    t    = []
+    Hs   = []
+    Tp   = []
+    pdir = []
+    ms   = []
+    raw = f.readline()
+    while len(raw.strip())>0:
+        t.append   (datetime.datetime.strptime(raw.split()[0],'%Y%m%d.%H%M%S'))
+        Hs.append  (float(raw.split()[1]))
+        Tp.append  (float(raw.split()[2]))
+        pdir.append(float(raw.split()[3]))
+        ms.append  (float(raw.split()[4]))
+        raw = f.readline()
+    f.close()
+
+    self.t    = np.asarray(t)
+    self.Hs   = np.asarray(Hs)
+    self.Tp   = np.asarray(Tp)
+    self.pdir = np.asarray(pdir)
+    self.ms   = np.asarray(ms)    
+    
+    return self
 
 if __name__ == '__main__':
 

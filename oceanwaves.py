@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Module for handling spectral ocean wave data.
+Module for handling spectral ocean wave data. We adhere th the following convention:
+* directions are assumed to be nautical convention: CF units degrees_true.
+* time is in UTC
+* coordinates are speherical WGS84
+* energy units are in m2/Hz/deg
   
 """
 
@@ -246,7 +250,7 @@ class Spec2():
     #@static
     def plot(self,fname=None,it=0,ix=0):        
         """
-        plot 2D spectrum to file
+        plot 2D spectrum (to file)
         """ 
         
         f = np.tile(self.f        ,[len(self.direction),1]).T
@@ -449,7 +453,7 @@ class Spec1():
     #@static
     def plot(self,fname=None,it=0,ix=0):        
         """
-        plot 1D spectrum to file
+        plot 1D spectrum (to file)
         """ 
         
         import matplotlib.pyplot as plt
@@ -484,7 +488,6 @@ class Spec0():
         self.buoy            = []
         self.sensor          = []
         self.source          = ''
-        self.t               = []
         self.x               = []
         self.y               = []
         self.lon             = []
@@ -493,27 +496,35 @@ class Spec0():
         self.text            = []
         self.version         = []
         
-        self.Hmax            = np.asarray([[]])
+        self.t               = np.asarray([[]])
         self.Hs              = np.asarray([[]])
         self.Tp              = np.asarray([[]])
         self.Tm01            = np.asarray([[]])
         self.Tm02            = np.asarray([[]])
         self.pdir            = np.asarray([[]])
-
+        self.ms              = np.asarray([[]])
+        
         #self.__dict__.update(kwargs)     
-
         
     def __repr__(self):
+    
+        if type(self.Hs) is type(1.) or type(self.Hs) is type(1):
         
-        return '<Spectrum0D ' + ' shape:[nt:' + str(self.Hs.shape[0])+ \
-        ',nx:'+str(self.Hs.shape[1])+ ']: "'+self.source+'">'
+            return '<Spectrum0D  Hs='+str(self.Hs)+\
+            ' Tp='+str(self.Tp)+\
+            ' @ '+str(self.t)+\
+            ' : "'+self.source+'">'            
+        
+        else:
+        
+            return '<Spectrum0D ' + ' shape:[nt,nx:' + str(self.Hs.shape)+']: "'+self.source+'">'
+
         
     def from_Spec(self,Spec):
     
         self.buoy   = Spec.buoy   
         self.sensor = Spec.sensor 
         self.source = Spec.source 
-        self.t      = Spec.t      
         self.x      = Spec.x      
         self.y      = Spec.y      
         self.lon    = Spec.lon    
@@ -521,6 +532,55 @@ class Spec0():
         self.epsg   = Spec.epsg   
         self.text   = Spec.text   
         
+        self.t      = Spec.t      
         self.Hs     = Spec.Hm0()
+        self.Tp     = Spec.Tp()
+        self.Tm01   = Spec.Tm01()
+        self.Tm02   = Spec.Tm02()
+        self.pdir   = Spec.pdir()
+       #self.ms     = Spec.pdir() # TO DO fit jonswap with Tp
     
         return self
+        
+        
+    #@static
+    def plot(self,fname=None,it=0,ix=0):        
+        """
+        plot parameter time series (to file)
+        """ 
+        
+        import matplotlib.pyplot as plt
+        if not fname is None:
+            fig=plt.figure()
+            fig.set_figwidth(10)
+            
+        if type(self.Hs) is type(1.) or type(self.Hs) is type(1):
+        
+            print('scalar: not plotted.')
+            ax = None        
+            
+        else:
+            
+            ax = []
+            ax.append(plt.axes([0.1,0.75,0.8,0.2], axisbg='w'))
+            plt.plot_date(self.t,self.Hs,'-')
+            ax[-1].set_ylabel('Hs [m]')
+
+            ax.append(plt.axes([0.1,0.5,0.8,0.2], axisbg='w'))
+            plt.plot_date(self.t,self.Tp,'-')
+            ax[-1].set_ylabel('Tp [s]')
+
+            ax.append(plt.axes([0.1,0.25,0.8,0.2], axisbg='w'))
+            plt.plot_date(self.t,self.pdir,'-')
+            ax[-1].set_ylabel('pdir [deg]')
+
+            ax.append(plt.axes([0.1,0.0,0.8,0.2], axisbg='w'))
+            plt.plot_date(self.t,self.ms,'-')
+            ax[-1].set_ylabel('ms [-]')
+
+        
+        if not fname is None:
+            plt.savefig(fname, fontsize=7, dpi=400)
+            plt.close()
+        else:
+            return ax     
