@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Module for handling spectral ocean wave data. We adhere th the following convention:
-* directions are assumed to be nautical convention: CF units degrees_true.
-* time is in UTC
-* coordinates are speherical WGS84
-* energy units are in m2/Hz/deg
+Module for handling spectral ocean wave data. We adhere to the following convention:
+ * directions:   nautical convention: CF units degrees_true
+ * time:         UTC
+ * coordinates:  speherical WGS84
+ * energy units: [m2/Hz/deg]
+ * methods for spectral parameters Hs(), Tm01, Tm02 
+   use the trapezozidal rule to integrate the spectrum.
   
 """
 
@@ -42,6 +44,45 @@ __version__ = "$Revision: $"
 import numpy as np
 import datetime
 debug = False
+
+def jonswap(f,Hm0,Tp,
+    g         = 9.81,
+    gamma     = 3.3, 
+    method    = 'Yamaguchi', 
+    normalize = True,
+    sa        = 0.07,
+    sb        = 0.09):
+    """
+    Generate 1D JONSWAP spectrum in [m2/Hz']
+    E = ow.jonswap(f,Hm0,Tp,**kwargs)
+    By default E is nornalized to the integral of E == Hm0.
+    
+    """
+    
+    # method    = 'Yamaguchi'; # 'Goda'        
+
+    def sigma(f,fpeak,sa,sb):
+        s = np.ones(f.size)*sa
+        s[f > fpeak] = sb
+        return s
+        
+    # Pierson-Moskowitz
+    if method=='Yamaguchi':
+        alpha = 1/(0.06533*gamma**0.8015 + 0.13467)/16; # Yamaguchi (1984), used in SWAN
+    elif method=='Goda':
+        alpha = 1/(0.23+0.03*gamma-0.185*(1.9+gamma)**-1)/16; # Goda
+
+    pm  = alpha*Hm0**2*Tp**-4*f**-5*np.exp(-1.25*(Tp*f)**-4);
+    
+    # apply JONSWAP shape
+    E = pm*gamma**np.exp(-0.5*(Tp*f-1)**2./sigma(f,1/Tp,sa,sb)**2);
+    #E(np.isnan(E))=0
+
+    if normalize:
+        corr = Hm0**2/(16*np.trapz(E,f))
+        E = E*corr
+        
+    return E
 
 def directional_spreading(dirs,pdir,ms,units='deg'):
 
@@ -87,32 +128,39 @@ def directional_spreading(dirs,pdir,ms,units='deg'):
 class Spec2():
     """
     Class for 2D spectra. Array shape is temporal series for a list of points.
+        Example:
+        Sp2 = Spec2(f=np.linspace(0.03,.3,100),direction=np.arange(0,24)*15) generates 2D energy array with nans
     """
     
-    def __init__(self):
+    def __init__(self,f=[np.nan],direction=[np.nan],**kwargs):
         
+        self.f               = f # always implicit Hz
+        self.direction       = direction
+
         self.buoy            = []
         self.sensor          = []
         self.source          = ''
-        self.t               = []
-        self.x               = []
-        self.y               = []
-        self.lon             = []
-        self.lat             = []
-        self.epsg            = [] # epsg for (x,y) <-> (lon,lat)
+        self.t               = [np.nan]
+        self.x               = [np.nan]
+        self.y               = [np.nan]
+        self.lon             = [np.nan]
+        self.lat             = [np.nan]
+        self.epsg            = []# epsg for (x,y) <-> (lon,lat)
         self.text            = []
-        self.version         = []
+        self.version         = [] 
         
-        self.f               = [] # always implicit Hz
-        self.ftype           = []
-        
-        self.direction       = []
-        self.direction_units = '' # implicit directiontype: degrees_north or degrees_true, radians??      
-        
-        self.energy          = np.asarray([[[[]]]]) # [t,xy,f,dir] or [xy,f,dir] or [f,dir] # last dimension 'dir' extra wrt Spec1
         self.energy_units    = ''
+        self.direction_units = '' # implicit directiontype: degrees_north or degrees_true, radians??      
 
-        #self.__dict__.update(kwargs)    
+        self.__dict__.update(kwargs)    
+        
+        self.energy          = np.asarray([[np.nan*np.zeros((len(f),len(direction)))]])  # [t,xy,f,dir] or [xy,f,dir] or [f,dir] # last dimension 'dir' extra wrt Spec1
+        
+        energy = np.asarray(kwargs.pop('energy',self.energy))
+        if energy.shape==(len(self.t),len(self.x),len(self.f),len(self.direction)):
+            self.energy = np.asarray(energy)
+        else:
+            raise Exception('dimensions E '+str(energy.shape)+' do not match t,x,f,direction '+str((len(self.t),len(self.x),len(self.f),len(self.direction))))        
         
     def __repr__(self):
     
@@ -137,9 +185,7 @@ class Spec2():
     
     def Hm0(self):
         """
-        Integrate Hm0 (Hs) from wave spectra (using trapz rule along last dimension.)
-        S = swan.Spec2()
-        S.Hm0()
+        Integrate Hm0 (Hs) from wave spectra: S = swan.Spec2(), S.Hm0()
         """
     
         if self.energy_units[0:9] == 'm2/Hz/deg': # deg, degr, degree
@@ -153,9 +199,7 @@ class Spec2():
 
     def Tm01(self):
         """
-        Integrate Hm0 (Hs) from wave spectra (using trapz rule along last dimension.)
-        S = swan.Spec2()
-        S.Tm01()
+        Integrate Hm0 (Hs) from wave spectra: S = swan.Spec2(), S.Tm01()
         """
     
         if self.energy_units[0:9] == 'm2/Hz/deg': # deg, degr, degree
@@ -172,9 +216,7 @@ class Spec2():
 
     def Tm02(self):
         """
-        Integrate Hm0 (Hs) from wave spectra (using trapz rule along last dimension.)
-        S = swan.Spec2()
-        S.Tm02()
+        Integrate Hm0 (Hs) from wave spectra: S = swan.Spec2(), S.Tm02()
         """
     
         if self.energy_units[0:9] == 'm2/Hz/deg': # deg, degr, degree
@@ -190,9 +232,7 @@ class Spec2():
 
     def Tp(self):
         """
-        Get peak period.
-        S = swan.Spec2()
-        S.Tp()
+        Get peak period: S = swan.Spec2(), S.Tp()
         """
     
         if self.energy_units[0:9] == 'm2/Hz/deg': # deg, degr, degree
@@ -205,9 +245,7 @@ class Spec2():
 
     def pdir(self):
         """
-        Get peak period.
-        S = swan.Spec2()
-        S.pdir()
+        Get peak period: S = swan.Spec2(), S.pdir()
         """
     
         if self.energy_units[0:9] == 'm2/Hz/deg': # deg, degr, degree
@@ -219,16 +257,10 @@ class Spec2():
         return pdir         
         
     #@static
-    def from_jonswap(dirs,f,Hm0,Tp,pdir,ms,
-        g         = 9.81,
-        gamma     = 3.3, 
-        method    = 'Yamaguchi', 
-        normalize = True,
-        sa        = 0.07,
-        sb        = 0.09):
+    def from_jonswap(dirs,f,Hm0,Tp,pdir,ms,**kwargs):
         """
         Generate 2D JONSWAP spectrum
-        Sp2 = swan.Spec1(direction,f,Hm0,Tp,pdir, ms,<kwargs>)
+        Sp2 = swan.Spec1(direction,f,Hm0,Tp,pdir,ms,**kwargs)
         
         """
 
@@ -237,7 +269,7 @@ class Spec2():
         self.f = f        
         self.direction = dirs      
         
-        Sp1 = Spec1.from_jonswap(self.f, Hm0, Tp)
+        Sp1 = Spec1.from_jonswap(self.f,Hm0,Tp,**kwargs)
         self.energy_units = 'm2/Hz/deg'
         #E = np.zeros([len(f), len(d)])+1e-9
         self.energy = np.tile(Sp1.energy,[len(self.direction),1]).T
@@ -286,38 +318,53 @@ class Spec2():
 class Spec1():
     """
     Class for 1D spectra. Array shape is temporal series for a list of points.
-        Example
-        Sp1 = Spec1()
-        Sp1.f = np.linspace(0.03,.3,100)
+        Example:
+        Sp1 = Spec1(f=np.linspace(0.03,.3,100)) generates 1D energy array with nans
     """
     
-    def __init__(self):
+    def __init__(self,f=[np.nan],**kwargs):
+        
+        self.f               = f  # always implicit Hz
         
         self.buoy            = []
         self.sensor          = []
         self.source          = ''
-        self.t               = []
-        self.x               = []
-        self.y               = []
-        self.lon             = []
-        self.lat             = []
-        self.epsg            = [] # epsg for (x,y) <-> (lon,lat)
+        self.t               = [np.nan]
+        self.x               = [np.nan]
+        self.y               = [np.nan]
+        self.lon             = [np.nan]
+        self.lat             = [np.nan]
+        self.epsg            = []# epsg for (x,y) <-> (lon,lat)
         self.text            = []
-        self.version         = []
+        self.version         = []         
         
-        self.f               = [] # always Hz
-        self.ftype           = []
-        
-        self.direction       = np.asarray([[[]]]) # [t,xy,f] or [xy,f] or [f]
-        self.direction_units = '' # implicit directiontype: degrees_north or degrees_true
-        
-        self.energy          = np.asarray([[[]]]) # [t,xy,f] # last dimension 'f' extra wrt Spec1
         self.energy_units    = ''
-        
-        self.spreading       = np.asarray([[[]]]) # [t,xy,f]
+        self.direction_units = '' # implicit directiontype: degrees_north or degrees_true
         self.spreading_units = ''
         
-        #self.__dict__.update(kwargs) 
+        self.__dict__.update(kwargs) # get f for making E,direction,spreading
+        
+        self.energy          = np.asarray([[np.nan*np.zeros((len(f)))]]) # [t,xy,f] # last dimension 'f' extra wrt Spec1
+        self.direction       = np.asarray([[np.nan*np.zeros((len(f)))]]) # [t,xy,f] or [xy,f] or [f]
+        self.spreading       = np.asarray([[np.nan*np.zeros((len(f)))]]) # [t,xy,f]
+        
+        energy = np.asarray(kwargs.pop('energy',self.energy))
+        if energy.shape==(len(self.t),len(self.x),len(self.f)):
+            self.energy = np.asarray(energy)
+        else:
+            raise Exception('dimensions E '+str(energy.shape)+' do not match t,x,f '+str((len(self.t),len(self.x),len(self.f))))
+            
+        direction = np.asarray(kwargs.pop('direction',self.direction))
+        if direction.shape==(len(self.t),len(self.x),len(self.f)):
+            self.direction = np.asarray(direction)
+        else:
+            raise Exception('dimensions E '+str(direction.shape)+' do not match t,x,f '+str((len(self.t),len(self.x),len(self.f))))
+
+        spreading = np.asarray(kwargs.pop('spreading',self.spreading))
+        if spreading.shape==(len(self.t),len(self.x),len(self.f)):
+            self.spreading = np.asarray(spreading)
+        else:
+            raise Exception('dimensions E '+str(spreading.shape)+' do not match t,x,f '+str((len(self.t),len(self.x),len(self.f))))            
         
     def __repr__(self):
         
@@ -335,57 +382,28 @@ class Spec1():
    #TO DO calculate period based on various spectral moments
    
     #@static
-    def from_jonswap(f,Hm0,Tp,
-        g         = 9.81,
-        gamma     = 3.3, 
-        method    = 'Yamaguchi', 
-        normalize = True,
-        sa        = 0.07,
-        sb        = 0.09):
+    def from_jonswap(f,Hm0,Tp,**kwargs):
         """
         Generate 1D JONSWAP spectrum
-        Sp1 = swan.Spec1(f,Hm0,Tp,<kwargs>)
+        Sp1 = swan.Spec1(f,Hm0,Tp,**kwargs)
         
         """
         
         self = Spec1()
-        
-        # method    = 'Yamaguchi'; # 'Goda'        
-
-        def sigma(f,fpeak,sa,sb):
-            s = np.ones(f.size)*sa
-            s[f > fpeak] = sb
-            return s
-        # Pierson-Moskowitz
-        
-        if method=='Yamaguchi':
-            alpha = 1/(0.06533*gamma**0.8015 + 0.13467)/16; # Yamaguchi (1984), used in SWAN
-        elif method=='Goda':
-            alpha = 1/(0.23+0.03*gamma-0.185*(1.9+gamma)**-1)/16; # Goda
-
-        pm  = alpha*Hm0**2*Tp**-4*f**-5*np.exp(-1.25*(Tp*f)**-4);
-        
-        # apply JONSWAP shape
-        
-        E = pm*gamma**np.exp(-0.5*(Tp*f-1)**2./sigma(f,1/Tp,sa,sb)**2);
-        
-        #E(np.isnan(E))=0
-
-        if normalize:
-            corr = Hm0**2/(16*np.trapz(E,f))
-            E = E*corr
-            
         self.f = f
-        self.energy = E
+        
+        #TO DO1 pass kwargs
+        #TO DO2 handle spatial-temporal dimensions for i in range(len(Hm0)):
+        
+        self.energy = jonswap(self.f,Hm0,Tp,**kwargs)
+        
         self.energy_units = 'm2/Hz'  
 
         return self
 
     def Hm0(self):
         """
-        Integrate Hm0 (Hs) from wave spectra (using trapz rule along last dimension.)
-        S = swan.Spec1()
-        S.Hm0()
+        Integrate Hm0 (Hs) from wave spectra: S = swan.Spec1(), S.Hm0()
         """
     
         if self.energy_units == 'm2/Hz':
@@ -399,9 +417,7 @@ class Spec1():
 
     def Tm01(self):
         """
-        Integrate Hm0 (Hs) from wave spectra (using trapz rule along last dimension.)
-        S = swan.Spec1()
-        S.Tm01()
+        Integrate Hm0 (Hs) from wave spectra: S = swan.Spec1(), S.Tm01()
         """
     
         if self.energy_units[0:9] == 'm2/Hz':
@@ -418,9 +434,7 @@ class Spec1():
 
     def Tm02(self):
         """
-        Integrate Hm0 (Hs) from wave spectra (using trapz rule along last dimension.)
-        S = swan.Spec1()
-        S.Tm02()
+        Integrate Hm0 (Hs) from wave spectra: S = swan.Spec1(), S.Tm02()
         """
     
         if self.energy_units[0:9] == 'm2/Hz':
@@ -437,9 +451,7 @@ class Spec1():
 
     def Tp(self):
         """
-        Get peak period.
-        S = swan.Spec1()
-        S.Tp()
+        Get peak period: S = swan.Spec1(), S.Tp()
         """
     
         if self.energy_units[0:9] == 'm2/Hz':
@@ -483,7 +495,7 @@ class Spec0():
     Class for spectral parameters
     """
 
-    def __init__(self):
+    def __init__(self,**kwargs):
         
         self.buoy            = []
         self.sensor          = []
@@ -496,6 +508,8 @@ class Spec0():
         self.text            = []
         self.version         = []
         
+        self.__dict__.update(kwargs)           
+        
         self.t               = np.asarray([[]])
         self.Hs              = np.asarray([[]])
         self.Tp              = np.asarray([[]])
@@ -503,8 +517,6 @@ class Spec0():
         self.Tm02            = np.asarray([[]])
         self.pdir            = np.asarray([[]])
         self.ms              = np.asarray([[]])
-        
-        #self.__dict__.update(kwargs)     
         
     def __repr__(self):
     
