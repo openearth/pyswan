@@ -154,7 +154,12 @@ class Spec2():
 
         self.__dict__.update(kwargs)    
         
-        self.energy          = np.asarray([[np.nan*np.zeros((len(f),len(direction)))]])  # [t,xy,f,dir] or [xy,f,dir] or [f,dir] # last dimension 'dir' extra wrt Spec1
+        nt = len(self.t)
+        nx = len(self.x)
+        nf = len(self.f)
+        nd = len(self.direction)
+        
+        self.energy          = np.asarray(np.nan*np.zeros((nt,nx,nf,nd)))  # [t,xy,f,dir] or [xy,f,dir] or [f,dir] # last dimension 'dir' extra wrt Spec1
         
         energy = np.asarray(kwargs.pop('energy',self.energy))
         if energy.shape==(len(self.t),len(self.x),len(self.f),len(self.direction)):
@@ -256,27 +261,24 @@ class Spec2():
         
         return pdir         
         
-    #@static
-    def from_jonswap(dirs,f,Hm0,Tp,pdir,ms,**kwargs):
+    def from_jonswap(self,Hm0,Tp,pdir,ms,**kwargs):
         """
         Generate 2D JONSWAP spectrum
-        Sp2 = swan.Spec1(direction,f,Hm0,Tp,pdir,ms,**kwargs)
+        Sp2 = swan.Spec2(f=f,t=t,x=x,direction=d)
+        Sp2.from_jonswap(Hm0,Tp)
         
         """
 
+        energy1 = jonswap(self.f,Hm0,Tp,**kwargs)
+        #self.energy = np.tile(Sp1.energy,[len(self.direction),1]).T
+        for it in range(len(self.t)):
+            for ix in range(len(self.x)):
+                for iff,v in enumerate(self.f):
+                    cdir = directional_spreading(self.direction,pdir,ms) # ms[iff]
+                    self.energy[it,ix,iff,:] = cdir*energy1[iff];        
         
-        self = Spec2()
-        self.f = f        
-        self.direction = dirs      
-        
-        Sp1 = Spec1.from_jonswap(self.f,Hm0,Tp,**kwargs)
         self.energy_units = 'm2/Hz/deg'
-        #E = np.zeros([len(f), len(d)])+1e-9
-        self.energy = np.tile(Sp1.energy,[len(self.direction),1]).T
-        for iff,v in enumerate(self.f):
-            cdir = directional_spreading(dirs,pdir,ms) # ms[iff]
-            self.energy[iff,:] = cdir*self.energy[iff,:];        
-        
+
         return self
         
     #@static
@@ -300,13 +302,13 @@ class Spec2():
         ax = plt.axes([0.15,.15,0.8,0.8])
         ax.set_xlabel(lx)
         ax.set_ylabel(ly)
-        if   len(self.energy.shape)==2:        
-            plt.pcolormesh(fx,fy,self.energy[:,:])        
-        elif   len(self.energy.shape)==3:        
-            plt.pcolormesh(fx,fy,self.energy[ix,:,:])        
-        elif   len(self.energy.shape)==4:        
-            plt.pcolormesh(fx,fy,self.energy[it,ix,:,:])        
-        ax.set_title('[' + str(self.lat) + ','+ str(self.lon) + ']')
+        #if   len(self.energy.shape)==2:        
+        #    plt.pcolormesh(fx,fy,self.energy[:,:])        
+        #elif   len(self.energy.shape)==3:        
+        #    plt.pcolormesh(fx,fy,self.energy[ix,:,:])        
+        #elif   len(self.energy.shape)==4:        
+        plt.pcolormesh(fx,fy,self.energy[it,ix,:,:])        
+        ax.set_title(str(self.t[it])+'  [' + str(self.lat[ix]) + ' °N,'+ str(self.lon[ix]) + ' °E]')
         plt.axis('equal')
         
         if not fname is None:
@@ -344,9 +346,13 @@ class Spec1():
         
         self.__dict__.update(kwargs) # get f for making E,direction,spreading
         
-        self.energy          = np.asarray([[np.nan*np.zeros((len(f)))]]) # [t,xy,f] # last dimension 'f' extra wrt Spec1
-        self.direction       = np.asarray([[np.nan*np.zeros((len(f)))]]) # [t,xy,f] or [xy,f] or [f]
-        self.spreading       = np.asarray([[np.nan*np.zeros((len(f)))]]) # [t,xy,f]
+        nt = len(self.t)
+        nx = len(self.x)
+        nf = len(self.f)
+        
+        self.energy          = np.asarray(np.nan*np.zeros((nt,nx,nf)))  # [t,xy,f] # last dimension 'f' extra wrt Spec1
+        self.direction       = np.asarray(np.nan*np.zeros((nt,nx,nf)))  # [t,xy,f] or [xy,f] or [f]
+        self.spreading       = np.asarray(np.nan*np.zeros((nt,nx,nf)))  # [t,xy,f]
         
         energy = np.asarray(kwargs.pop('energy',self.energy))
         if energy.shape==(len(self.t),len(self.x),len(self.f)):
@@ -381,21 +387,17 @@ class Spec1():
    #def Tmij(self):
    #TO DO calculate period based on various spectral moments
    
-    #@static
-    def from_jonswap(f,Hm0,Tp,**kwargs):
+    def from_jonswap(self,Hm0,Tp,**kwargs):
         """
         Generate 1D JONSWAP spectrum
-        Sp1 = swan.Spec1(f,Hm0,Tp,**kwargs)
+        Sp1 = swan.Spec1(f=f,t=t,x=x)
+        Sp1.from_jonswap(Hm0,Tp)
         
         """
         
-        self = Spec1()
-        self.f = f
-        
-        #TO DO1 pass kwargs
-        #TO DO2 handle spatial-temporal dimensions for i in range(len(Hm0)):
-        
-        self.energy = jonswap(self.f,Hm0,Tp,**kwargs)
+        for it in range(len(self.t)):
+            for ix in range(len(self.x)):
+                self.energy[it,ix] = jonswap(self.f,Hm0,Tp,**kwargs)
         
         self.energy_units = 'm2/Hz'  
 
@@ -473,15 +475,15 @@ class Spec1():
             fig=plt.figure()
             fig.set_figwidth(10)
         ax = plt.axes([0.15,.15,0.8,0.8])
-        if   len(self.energy.shape)==1:
-            plt.plot(self.f,self.energy[:])
-        elif   len(self.energy.shape)==2:
-            plt.plot(self.f,self.energy[ix,:])
-        elif   len(self.energy.shape)==3:
-            plt.plot(self.f,self.energy[it,ix,:])
+        #if   len(self.energy.shape)==1:
+        #    plt.plot(self.f,self.energy[:])
+        #elif   len(self.energy.shape)==2:
+        #    plt.plot(self.f,self.energy[ix,:])
+        #elif   len(self.energy.shape)==3:
+        plt.plot(self.f,self.energy[it,ix,:])
         ax.set_xlabel('f [Hz]')
         ax.set_ylabel('E [' + self.energy_units + ']')
-        ax.set_title('[' + str(self.lat) + ','+ str(self.lon) + ']')
+        ax.set_title(str(self.t[it])+'  [' + str(self.lat[ix]) + ' °N,'+ str(self.lon[ix]) + ' °E]')
         
         if not fname is None:
             plt.savefig(fname, fontsize=7, dpi=400)
