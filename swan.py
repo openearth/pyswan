@@ -40,6 +40,8 @@ import numpy as np
 import datetime
 import oceanwaves as ow
 debug = False
+import unittest
+import os.path
    
 #@static
 def from_swan_header(f, source='from_swan'):
@@ -250,7 +252,8 @@ def from_file1D(f,source='from_swan'):
     # data
 
     raw = 'ini'
-    En3,Th3,Sp3 = [],[],[]
+    En3,Th3,Sp3,t = [],[],[],[]
+    
     if debug:
         print('TIMES')
     while not raw == '':
@@ -260,12 +263,12 @@ def from_file1D(f,source='from_swan'):
                 break
             tstr = raw.split()[0].strip()
             if timecoding==1:
-                self.t.append(datetime.datetime.strptime(tstr,'%Y%m%d.%H%M%S'))
+                t.append(datetime.datetime.strptime(tstr,'%Y%m%d.%H%M%S'))
             else:
-                self.t.append(tstr)
+                t.append(tstr)
                 print('timecoding unknown: ',timecoding)
             if debug:
-                print(len(self.t),': ',self.t[-1])
+                print(len(t),': ',t[-1])
         En2,Th2,Sp2 = [],[],[]
         for i in range(len(self.x)):
             loc = f.readline()
@@ -289,7 +292,7 @@ def from_file1D(f,source='from_swan'):
     Th3 = np.asarray(Th3)
     Sp3 = np.asarray(Sp3)
     
-    self.t         = np.asarray(self.t)
+    self.t         = np.asarray(t)
     self.energy    = np.ma.masked_array(En3,En3==quantity_exception_values[0])
     self.direction = np.ma.masked_array(Th3,Th3==quantity_exception_values[1])
     self.spreading = np.ma.masked_array(Sp3,Sp3==quantity_exception_values[2])
@@ -316,11 +319,10 @@ def to_file1D(self,f):
     # TIME    
     if len(self.t)>0:
         f.writelines('TIME\n')
-    f.writelines(str(len(self.x)) + '\n')
+    #f.writelines(str(len(self.x)) + '\n') # can SWAN handle this?, that would be very convenient for pre-allocation
+    f.writelines(str(min(1,len(self.x))) + '\n')
 
     # LOC
-    print(self.lon[0])
-    print(self.x[0])
     if self.x[0] == None:
         f.writelines('LONLAT\n')
         f.writelines(str(len(self.lon)) + '\n')
@@ -448,55 +450,43 @@ def from_file0D(f,source='from_swan'):
     self.ms   = np.asarray(ms)    
     
     return self
+    
+class TestSuite(unittest.TestCase):
+    
+    def test_swan1Dll(self):
+        """Test that Hm0=0 after cycle of: read > write > read"""
+    
+        for file in [r'./testdata/llcdirafreq1.spc',
+                     r'./testdata/xyndirrfreq1.spc']:
+        
+            f1  = open(file)
+            T1 = from_file1D(f1,source=os.path.basename(file))
+            f1.close()
+            T1.plot(file + '.png')
+        
+            file2 = os.path.splitext(file)[0] + '.copy' + os.path.splitext(file)[1]
+            f2 = open(file2,'w')
+            to_file1D(T1,f2)
+            f2.close()
+        
+            f1b  = open(file2)
+            T1b = from_file1D(f1b)
+            f1b.close()
+            
+            self.assertTrue(np.abs(T1b.Hm0()[0,0]-1) < 1e-3)
+        
+    def test_swan2Dxy(self):
+        """Test that Hm0=0 after cycle of: read > TO DO"""
+    
+        file = r'./testdata/xyndirrfreq2.spc'
+        f = open(file)    
+        T = from_file2D(f,source=os.path.basename(file))
+        f.close()
+        T.plot(file + '.png')
+        
+        self.assertTrue(np.abs(T.Hm0()[0,0]-1) < 1e-3)
 
 if __name__ == '__main__':
 
-    import os.path
-    
-    OK = []
-
-## TEST: SWAN 1D test files: different xy and directional cooordinate systems
-   
-    file  = r'./testdata/llcdirafreq1.spc'
-    f  = open(file)
-    T = from_file1D(f,source=os.path.basename(file))
-    f.close()
-    print(T,T.Hm0())
-    T.plot(file + '.png')
-    OK.append(np.abs(T.Hm0()[0,0]-1))
-
-    file2 = r'./testdata/llcdirafreq1copy.spc'
-    f2 = open(file2,'w')
-    to_file1D(T,f2)
-    f2.close()
-    
-    file = r'./testdata/xyndirrfreq1.spc'
-    f = open(file)
-    T = from_file1D(f,source=os.path.basename(file))
-    f.close()
-    print(T,T.Hm0())    
-    T.plot(file + '.png')
-    OK.append(np.abs(T.Hm0()[0,0]-1))
-    
-    file2 = r'./testdata/xyndirrfreq1copy.spc'
-    f2 = open(file2,'w')
-    to_file1D(T,f2)
-    f2.close()    
-    
-## TEST: SWAN 2D test files
-
-    file = r'./testdata/xyndirrfreq2.spc'
-    f = open(file)    
-    T = from_file2D(f,source=os.path.basename(file))
-    f.close()
-    print(T,T.energy.shape, T.Hm0())
-    T.plot(file + '.png')
-    OK.append(np.abs(T.Hm0()[0,0]-1))
-    
-## Wrap up units tests    
-    
-    if np.all(np.asarray(OK) < 1e-3):
-        print('OK')
-    else:
-        raise ValueError('Not all unit tests OK')
+    unittest.main()
     

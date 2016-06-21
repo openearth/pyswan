@@ -88,9 +88,10 @@ def directional_spreading(dirs,pdir,ms,units='deg'):
 
     """
     Calculate directional spreading. 
-    cdir = directional_spreading(dirs,pdir,ms,units='deg')
+    >> cdir = directional_spreading(dirs,pdir,ms,units='deg')
     where for example with pdir = 135
-    dirs = np.asanyarray([0, 45, 60] + list(90+np.arange(0,19)*5.) + [210,] + list(180+np.arange(1,5)*45.))
+    >> dirs = np.asanyarray([0, 45, 60] + list(90+np.arange(0,19)*5.) + \
+              [210,] + list(180+np.arange(1,5)*45.))
      
     """
     from math import gamma
@@ -128,8 +129,9 @@ def directional_spreading(dirs,pdir,ms,units='deg'):
 class Spec2():
     """
     Class for 2D spectra. Array shape is temporal series for a list of points.
-        Example:
-        Sp2 = Spec2(f=np.linspace(0.03,.3,100),direction=np.arange(0,24)*15) generates 2D energy array with nans
+    Example:
+    >> Sp2 = Spec2(f=np.linspace(0.03,.3,100),direction=np.arange(0,24)*15) 
+    generates 2D energy array with nans
     """
     
     def __init__(self,f=[np.nan],direction=[np.nan],**kwargs):
@@ -264,8 +266,8 @@ class Spec2():
     def from_jonswap(self,Hm0,Tp,pdir,ms,**kwargs):
         """
         Generate 2D JONSWAP spectrum
-        Sp2 = swan.Spec2(f=f,t=t,x=x,direction=d)
-        Sp2.from_jonswap(Hm0,Tp)
+        >> Sp2 = swan.Spec2(f=f,t=t,x=x,direction=d)
+        >> Sp2.from_jonswap(Hm0,Tp)
         
         """
 
@@ -320,8 +322,9 @@ class Spec2():
 class Spec1():
     """
     Class for 1D spectra. Array shape is temporal series for a list of points.
-        Example:
-        Sp1 = Spec1(f=np.linspace(0.03,.3,100)) generates 1D energy array with nans
+    Example:
+    >> Sp1 = Spec1(f=np.linspace(0.03,.3,100)) 
+    generates 1D energy array with nans
     """
     
     def __init__(self,f=[np.nan],**kwargs):
