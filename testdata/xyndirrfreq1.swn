@@ -1,0 +1,30 @@
+PROJ 'flume shoaling' '000' '' '' ''
+SET NAUTICAL
+MODE NONSTat ONED
+$
+$ CGRID [xpc] [ypc] [alpc] [xlenc] [ylenc] [mxc] [myc] SECTOR [dir1] [dir2] [mdc] [flow]  [fhigh] [msc]
+  CGRID  0.    0.    0.     1000.   0.      100   0    SECTOR  -180     0    15    0.025    1      39
+$
+$ INPGRID BOTTOM [xpinp] [ypinp] [alpinp] [mxinp] [myinp] [dxinp] [dyinp]
+  INPGRID BOTTOM   -1.    0.      0.       1       0       1002.    0.
+  READINP BOTTOM 1. '2.bot' 4 0 FREE
+$
+  BOUN SHAPE BIN PEAK DSPR POWER
+$
+$ BOUN SIDE W CCW VAR FILE [len] ’fname’ [seq]
+  BOUN SIDE W CCW VAR FILE  0    'xyndirrfreq1.spc'
+$
+  PROP BSBT
+  NUM ACCUR   0.020    0.020    0.020   100.000   NONSTAT 5
+$
+GEN3
+OFF WINDG
+OFF QUAD
+$
+CURVE  'GAUGE' 0. 0.  100  1000. 0.
+TABLE  'GAUGE' HEAD   'xyndirrfreq1.crv' XP YP PDIR HSIGN RTP TM01 TM02 DEP
+CURVE  'PNTS' 0. 0.  1  100. 0.
+SPEC   'PNTS' SPEC1D 'xyndirrfreq1.s1d'
+$
+COMPUTE NONSTat 20160101.000000 1 MIN 20160101.001000
+STOP

@@ -1,0 +1,4 @@
+call swanrun xyndirrfreq1
+call swanrun xyndirrfreq1stat
+call swanrun llcdirafreq1
+call swanrun llcdirafreq1stat
