@@ -6,7 +6,7 @@ Module for handling SWAN input/output, using oceanwwaves package:
 """
 
 """
-$HeadURL:  $
+$HeadURL:  https://github.com/openearth/pyswan/$
 $Id:  $
 """
 __version__ = "$Revision: $"
@@ -58,15 +58,16 @@ def from_swan_header(f, source='from_swan'):
     
     # when
 
-    t = f.readline()
-    if t.split()[0].strip() == 'TIME':
+    raw = f.readline()
+    if raw.split()[0].strip() == 'TIME':
         timecoding = int(f.readline().split()[0].strip())
+        raw = f.readline()
     else:
         timecoding = None
 
     # where
 
-    xy  = f.readline().split()[0].strip()
+    xy  = raw.split()[0].strip()
     nxy = int(f.readline().split()[0])
     self["x"]   = []
     self["y"]   = []
@@ -157,7 +158,7 @@ def from_file2D(f,source='from_swan'):
     # data
     
     raw = 'ini'
-    En4 = []
+    En4,t=[],[]
     if debug:
         print('TIMES')
     while not raw == '':
@@ -167,12 +168,12 @@ def from_file2D(f,source='from_swan'):
                 break
             tstr = raw.split()[0].strip()
             if timecoding==1:
-                self.t.append(datetime.datetime.strptime(tstr,'%Y%m%d.%H%M%S'))
+                t.append(datetime.datetime.strptime(tstr,'%Y%m%d.%H%M%S'))
             else:
-                self.t.append(tstr)
+                t.append(tstr)
                 print('timecoding unknown: ',timecoding)
             if debug:
-                print(len(self.t),': ',self.t[-1])
+                print(len(t),': ',t[-1])
                 
             #print('UNDER CONSTRUCTION')
             #return self
@@ -201,10 +202,89 @@ def from_file2D(f,source='from_swan'):
             En3.append(En2)
         En4.append(En3)
     En4 = np.asarray(En4)
-    self.t      = np.asarray(self.t)
+    self.t      = np.asarray(t)
     self.energy = np.ma.masked_array(En4,En4==quantity_exception_values[0])
     
     return self 
+    
+#@static
+def to_file2D(self,f,timecoding=1):
+    """
+    Save 2D spectral series file to SWAN spectral file/buffer.
+    
+    S2 = ow.Spec2() 
+    # fill S2
+    f = fopen(r'c:\temp\newfile.s2d')
+    S2.to_file2D(f)
+    f.close()      
+    Use attribute timecoding=None to optionally write a stationary file
+    i.e. without time. When time is nan, also stationary file will be written.
+    
+    """      
+    
+    f.writelines('SWAN ' + str(self.version) + '\n')
+    for t in self.text:
+        f.writelines('$' + t)
+        
+    # TIME    
+    if not timecoding is None:
+        if type(self.t[0]) is type(datetime.datetime(1997,1,1)):
+            f.writelines('TIME\n')
+            #f.writelines(str(len(self.x)) + '\n') # can SWAN handle this?, that would be very convenient for pre-allocation
+            f.writelines(str(min(1,len(self.x))) + '\n')    
+            
+    # LOC
+    if self.x[0] == None:
+        f.writelines('LONLAT\n')
+        f.writelines(str(len(self.lon)) + '\n')
+        for i in range(len(self.lon)):
+            f.write("{:f} {:f}\n".format(self.lon[i],self.lat[i]))
+    elif self.lon[0] == None:
+        f.writelines('LOCATIONS\n')
+        f.writelines(str(len(self.x)) + '\n')
+        for i in range(len(self.x)):
+            f.write("{:g} {:g}\n".format(self.x[i],self.y[i]))                 
+        
+    # FREQ
+    if self.ftype == 'absolute':
+        f.writelines('AFREQ\n')
+    else:    
+        f.writelines('FREQ\n')
+    f.writelines(str(len(self.f))+ '\n')
+    for freq in self.f:
+        f.writelines("{:g}\n".format(freq))
+
+    # DIR
+    if self.direction_units =='degrees_North':
+        f.writelines('NDIR\n')
+    else:    
+        f.writelines('CDIR\n')
+    f.writelines(str(len(self.direction))+ '\n')
+    for dir in self.direction:
+        f.writelines("{:g}\n".format(dir))
+        
+    # QUANT
+    f.writelines('QUANT \n')
+    f.writelines('1                                       number of quantities in table\n')
+    
+    f.writelines('VaDens                                  variance densities in m2/Hz/degr\n')
+    f.writelines(self.energy_units + '                              unit\n')
+    f.writelines('NaN                                     exception value' + '\n')
+    
+    for it,t in enumerate(self.t):
+        if not timecoding is None:
+            if type(self.t[0]) is type(datetime.datetime(1997,1,1)):
+                if debug:
+                    print('time ',self.t[it])        
+                f.writelines("{:%Y%m%d.%H%M%S}                         date and time\n".format(self.t[it]))
+        for ix,x in enumerate(self.x):
+            f.writelines('FACTOR \n1\n'.format(ix+1)) # LOCATION
+            for ifr,fr in enumerate(self.f):
+                for idr,dr in enumerate(self.direction):
+                    f.writelines('{:g} '.format(self.energy[it,ix,ifr,idr]))
+                f.writelines('\n')    
+                    
+    return                
     
 #@static
 def from_file1D(f,source='from_swan'):
@@ -253,14 +333,17 @@ def from_file1D(f,source='from_swan'):
 
     raw = 'ini'
     En3,Th3,Sp3,t = [],[],[],[]
-    
     if debug:
+        print('timecoding',timecoding)
         print('TIMES')
+    
+    raw = f.readline()
+    if debug:
+        print('-1-',raw)
     while not raw == '':
-        if not timecoding == None:
-            raw = f.readline()
-            if raw == '':
-                break
+        if timecoding == None: # time is optional
+            t.append(np.nan)
+        else:
             tstr = raw.split()[0].strip()
             if timecoding==1:
                 t.append(datetime.datetime.strptime(tstr,'%Y%m%d.%H%M%S'))
@@ -269,19 +352,23 @@ def from_file1D(f,source='from_swan'):
                 print('timecoding unknown: ',timecoding)
             if debug:
                 print(len(t),': ',t[-1])
+            raw = f.readline()
+            if debug:
+                print('-2-',raw)
         En2,Th2,Sp2 = [],[],[]
         for i in range(len(self.x)):
-            loc = f.readline()
+            raw = f.readline()
+            if debug:
+                print('-3-',raw)
 #  TO DO: can be NODATA
             En1,Th1,Sp1 = [],[],[]
             for j in range(len(self.f)):
+                En1.append(float(raw.split()[0]))
+                Th1.append(float(raw.split()[1]))
+                Sp1.append(float(raw.split()[2]))
                 raw = f.readline()
                 if raw == '':
                     break
-                else:
-                    En1.append(float(raw.split()[0]))
-                    Th1.append(float(raw.split()[1]))
-                    Sp1.append(float(raw.split()[2]))
             En2.append(En1)
             Th2.append(Th1)
             Sp2.append(Sp1)
@@ -296,11 +383,11 @@ def from_file1D(f,source='from_swan'):
     self.energy    = np.ma.masked_array(En3,En3==quantity_exception_values[0])
     self.direction = np.ma.masked_array(Th3,Th3==quantity_exception_values[1])
     self.spreading = np.ma.masked_array(Sp3,Sp3==quantity_exception_values[2])
-    
+   
     return self
     
 #@static
-def to_file1D(self,f):
+def to_file1D(self,f,timecoding=1):
     """
     Save 1D spectral series file to SWAN spectral file/buffer.
     
@@ -308,7 +395,9 @@ def to_file1D(self,f):
     # fill S1
     f = fopen(r'c:\temp\newfile.s1d')
     S1.to_file1D(f)
-    f.close()        
+    f.close()      
+    Use attribute timecoding=None to optionally write a stationary file
+    i.e. without time. When time is nan, also stationary file will be written.
     
     """          
     
@@ -317,22 +406,23 @@ def to_file1D(self,f):
         f.writelines('$' + t)
         
     # TIME    
-    if len(self.t)>0:
-        f.writelines('TIME\n')
-    #f.writelines(str(len(self.x)) + '\n') # can SWAN handle this?, that would be very convenient for pre-allocation
-    f.writelines(str(min(1,len(self.x))) + '\n')
+    if not timecoding is None:
+        if type(self.t[0]) is type(datetime.datetime(1997,1,1)):
+            f.writelines('TIME\n')
+            #f.writelines(str(len(self.x)) + '\n') # can SWAN handle this?, that would be very convenient for pre-allocation
+            f.writelines(str(min(1,len(self.x))) + '\n')
 
     # LOC
     if self.x[0] == None:
         f.writelines('LONLAT\n')
         f.writelines(str(len(self.lon)) + '\n')
         for i in range(len(self.lon)):
-            f.write("{:f} {:f}\n".format(self.lon[i],self.lat[i]))
+            f.write("{:g} {:g}\n".format(self.lon[i],self.lat[i]))
     elif self.lon[0] == None:
         f.writelines('LOCATIONS\n')
         f.writelines(str(len(self.x)) + '\n')
         for i in range(len(self.x)):
-            f.write("{:f} {:f}\n".format(self.x[i],self.y[i]))                 
+            f.write("{:g} {:g}\n".format(self.x[i],self.y[i]))                 
         
     # FREQ
     if self.ftype == 'absolute':
@@ -341,7 +431,7 @@ def to_file1D(self,f):
         f.writelines('FREQ\n')
     f.writelines(str(len(self.f))+ '\n')
     for freq in self.f:
-        f.writelines("{:f}\n".format(freq))
+        f.writelines("{:g}\n".format(freq))
 
     # QUANT
     f.writelines('QUANT \n')
@@ -364,11 +454,15 @@ def to_file1D(self,f):
 
 
     for it,t in enumerate(self.t):
-        f.writelines("{:%Y%m%d.%H%M%S}\n".format(self.t[it]))
+        if not timecoding is None:
+            if type(self.t[0]) is type(datetime.datetime(1997,1,1)):
+                if debug:
+                    print('time ',self.t[it])        
+                f.writelines("{:%Y%m%d.%H%M%S}                         date and time\n".format(self.t[it]))
         for ix,x in enumerate(self.x):
             f.writelines('LOCATION {:d} \n'.format(ix+1))
             for ifr,fr in enumerate(self.f):
-                f.writelines('{:f} {:} {:f} \n'.format(self.energy[it,ix,ifr],self.direction[it,ix,ifr],self.spreading[it,ix,ifr]))
+                f.writelines('{:f} {:} {:g} \n'.format(self.energy[it,ix,ifr],self.direction[it,ix,ifr],self.spreading[it,ix,ifr]))
                 
     return
     
@@ -454,37 +548,74 @@ def from_file0D(f,source='from_swan'):
 class TestSuite(unittest.TestCase):
     
     def test_swan1Dll(self):
-        """Test that Hm0=0 after cycle of: read > write > read"""
+        """Test that Hm0=1 after cycle of: read > write > read,
+        for STATionary and NOTstationnary."""
     
-        for file in [r'./testdata/llcdirafreq1.spc',
-                     r'./testdata/xyndirrfreq1.spc']:
+        for file in [r'./testdata/xyndirrfreq1.spc',
+                     r'./testdata/llcdirafreq1.spc',
+                     r'./testdata/xyndirrfreq1stat.spc',
+                     r'./testdata/llcdirafreq1stat.spc']:
+    
+            fa  = open(file)
+            Ta = from_file1D(fa,source=os.path.basename(file))
+            fa.close()
+
+            Ta.plot(os.path.splitext(file)[0] + '.png')
         
-            f1  = open(file)
-            T1 = from_file1D(f1,source=os.path.basename(file))
-            f1.close()
-            T1.plot(file + '.png')
+             # feed this to SWAN and check Hm0=1
+            fileb = os.path.splitext(file)[0] + 'time.s1d'
+            fb = open(fileb,'w')
+            to_file1D(Ta,fb)
+            fb.close()
+            fileb = os.path.splitext(file)[0] + 'stat.s1d'
+            fb = open(fileb,'w')
+            to_file1D(Ta,fb,timecoding=None)
+            fb.close()
         
-            file2 = os.path.splitext(file)[0] + '.copy' + os.path.splitext(file)[1]
-            f2 = open(file2,'w')
-            to_file1D(T1,f2)
-            f2.close()
-        
-            f1b  = open(file2)
-            T1b = from_file1D(f1b)
-            f1b.close()
+            fc  = open(fileb)
+            Tc = from_file1D(fc)
+            fc.close()
             
-            self.assertTrue(np.abs(T1b.Hm0()[0,0]-1) < 1e-3)
+            print(file,Tc.Hm0()[0,0])
+        
+            self.assertTrue(np.abs(Tc.Hm0()[0,0]-1) < 1e-3)
         
     def test_swan2Dxy(self):
-        """Test that Hm0=0 after cycle of: read > TO DO"""
+        """Test that Hm0=1 after cycle of: read > TO DO,
+        for STATionary and NOTstationnary"""        
     
-        file = r'./testdata/xyndirrfreq2.spc'
-        f = open(file)    
-        T = from_file2D(f,source=os.path.basename(file))
-        f.close()
-        T.plot(file + '.png')
+        for file in [r'./testdata/xyndirrfreq2.spc',
+                     r'./testdata/llcdirafreq2.spc']:#,
+                    #r'./testdata/xyndirrfreq2stat.spc', 
+                    #r'./testdata/llcdirafreq2stat.spc']:
+                    # TO DO nonstat
+    
+            fa = open(file)    
+            Ta = from_file2D(fa,source=os.path.basename(file))
+            fa.close()
+            
+            Ta.plot(os.path.splitext(file)[0] + '.png')
+            
+             # feed this to SWAN and check Hm0=1
+   
+            fileb = os.path.splitext(file)[0] + 'stat.s2d'
+            fb = open(fileb,'w')
+            to_file2D(Ta,fb,timecoding=None)
+            fb.close()
+            fileb = os.path.splitext(file)[0] + 'time.s2d'
+            fb = open(fileb,'w')
+            to_file2D(Ta,fb)
+            fb.close()  
+            
+            #fc  = open(fileb)
+            #Tc = from_file1D(fc)
+            #fc.close()            
+            
+            # TO DO: implement to_file2D
         
-        self.assertTrue(np.abs(T.Hm0()[0,0]-1) < 1e-3)
+            print(file,Ta.Hm0()[0,0])
+            
+            self.assertTrue(np.abs(Ta.Hm0()[0,0]-1) < 1e-3)
 
 if __name__ == '__main__':
 
