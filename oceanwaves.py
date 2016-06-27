@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Module for handling spectral ocean wave data. We adhere to the following convention:
+Module for handling spectral ocean wave data. We adhere to the following conventions:
  * directions:   nautical convention: CF units degrees_true
  * time:         UTC
  * coordinates:  speherical WGS84
  * energy units: [m2/Hz/deg]
  * methods for spectral parameters Hs(), Tm01, Tm02 
-   use the trapezozidal rule to integrate the spectrum.
+   use the trapezoidal rule to integrate the spectrum.
+   This module is tested via the swan.py test input files.
   
 """
 
