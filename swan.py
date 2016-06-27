@@ -35,9 +35,10 @@ __version__ = "$Revision: WIP$" # https://git-scm.com/book/en/v2/Customizing-Git
 import numpy as np
 import datetime
 import oceanwaves as ow
-debug = False
 import unittest
 import os.path
+
+debug = False
    
 #@static
 def from_swan_header(f, source='from_swan'):
@@ -70,12 +71,10 @@ def from_swan_header(f, source='from_swan'):
     self["lon"] = []
     self["lat"] = []
     
-    if debug:
-        print('POINTS')
     for i in range(nxy):
         raw = f.readline()
         if debug:
-            print(i,': ',raw.rstrip())
+            print('POINT ', i,': ',raw.rstrip())
         if xy == 'LONLAT':
             self["lon"].append(float(raw.split()[0]))
             self["lat"].append(float(raw.split()[1]))
@@ -155,13 +154,11 @@ def from_file2D(f,source='from_swan'):
     
     raw = 'ini'
     En4,t=[],[]
-    if debug:
-        print('TIMES')
+    raw = f.readline()
     while not raw == '':
-        if not timecoding == None:
-            raw = f.readline()
-            if raw == '':
-                break
+        if timecoding == None: # time is optional
+            t.append(np.nan)
+        else:
             tstr = raw.split()[0].strip()
             if timecoding==1:
                 t.append(datetime.datetime.strptime(tstr,'%Y%m%d.%H%M%S'))
@@ -169,38 +166,33 @@ def from_file2D(f,source='from_swan'):
                 t.append(tstr)
                 print('timecoding unknown: ',timecoding)
             if debug:
-                print(len(t),': ',t[-1])
-                
-            #print('UNDER CONSTRUCTION')
-            #return self
-        
+                print('TIME',len(t),': ',t[-1])
+            raw = f.readline()
         En3 = []
         for i in range(len(self.x)):
-            loc = f.readline().split()[0]
+            loc = raw.split()[0]
             if loc =='FACTOR':
                 factor = float(f.readline().split()[0].strip())
                 if debug:
                     print('   POINT ',i,' FACTOR:',factor)
             else:
-                if debug:
-                    print('   POINT ',i,' FACTOR:',loc)
-                
+                print('ERROR, only FACTOR not implemented not ZERO or NODATA ',raw)
+            raw = f.readline()
             En2 = []
             for j in range(len(self.f)):
                 En1 = []
+                for k in range(len(self.direction)):
+                    En1.append(float(raw.split()[k])*factor)
+                En2.append(En1)
                 raw = f.readline()
                 if raw == '':
                     break
-                else:
-                    for k in range(len(self.direction)):
-                        En1.append(float(raw.split()[k])*factor)
-                En2.append(En1)
             En3.append(En2)
         En4.append(En3)
-    En4 = np.asarray(En4)
+    En4         = np.asarray(En4)
     self.t      = np.asarray(t)
     self.energy = np.ma.masked_array(En4,En4==quantity_exception_values[0])
-    
+
     return self 
     
 #@static
@@ -545,73 +537,78 @@ class TestSuite(unittest.TestCase):
     
     def test_swan1Dll(self):
         """Test that Hm0=1 after cycle of: read > write > read,
-        for STATionary and NOTstationnary."""
+        for STATionary and NOTstationary."""
     
         for file in [r'./testdata/xyndirrfreq1.spc',
                      r'./testdata/llcdirafreq1.spc',
                      r'./testdata/xyndirrfreq1stat.spc',
                      r'./testdata/llcdirafreq1stat.spc']:
     
+            # test plot
             fa  = open(file)
             Ta = from_file1D(fa,source=os.path.basename(file))
             fa.close()
-
             Ta.plot(os.path.splitext(file)[0] + '.png')
         
-             # feed this to SWAN and check Hm0=1
+            # feed STATionary to SWAN and check Hm0=1
+            fileb = os.path.splitext(file)[0] + 'stat.s1d'
+            fb = open(fileb,'w')
+            to_file1D(Ta,fb,timecoding=None) # !
+            fb.close()
+            fc  = open(fileb)
+            Tc = from_file1D(fc)
+            fc.close()
+            print(file,Tc.Hm0()[0,0])
+            self.assertTrue(np.abs(Tc.Hm0()[0,0]-1) < 1e-3)
+            
+            # feed NONSTATionary to SWAN and check Hm0=1            
             fileb = os.path.splitext(file)[0] + 'time.s1d'
             fb = open(fileb,'w')
             to_file1D(Ta,fb)
             fb.close()
-            fileb = os.path.splitext(file)[0] + 'stat.s1d'
-            fb = open(fileb,'w')
-            to_file1D(Ta,fb,timecoding=None)
-            fb.close()
-        
             fc  = open(fileb)
             Tc = from_file1D(fc)
             fc.close()
-            
             print(file,Tc.Hm0()[0,0])
-        
             self.assertTrue(np.abs(Tc.Hm0()[0,0]-1) < 1e-3)
         
     def test_swan2Dxy(self):
-        """Test that Hm0=1 after cycle of: read > TO DO,
-        for STATionary and NOTstationnary"""        
+        """Test that Hm0=1 after cycle of: read > write > read,
+        for STATionary and NOTstationary."""        
     
         for file in [r'./testdata/xyndirrfreq2.spc',
-                     r'./testdata/llcdirafreq2.spc']:#,
-                    #r'./testdata/xyndirrfreq2stat.spc', 
-                    #r'./testdata/llcdirafreq2stat.spc']:
+                     r'./testdata/llcdirafreq2.spc',
+                     r'./testdata/xyndirrfreq2stat.spc', 
+                     r'./testdata/llcdirafreq2stat.spc']:
                     # TO DO nonstat
     
+            # test plot
             fa = open(file)    
             Ta = from_file2D(fa,source=os.path.basename(file))
             fa.close()
-            
             Ta.plot(os.path.splitext(file)[0] + '.png')
             
-             # feed this to SWAN and check Hm0=1
-   
+            # feed STATionary this to SWAN and check Hm0=1
             fileb = os.path.splitext(file)[0] + 'stat.s2d'
             fb = open(fileb,'w')
-            to_file2D(Ta,fb,timecoding=None)
+            to_file2D(Ta,fb,timecoding=None) # !
             fb.close()
+            fc  = open(fileb)
+            Tc = from_file2D(fc)
+            fc.close()            
+            print(file,Tc.Hm0()[0,0])
+            self.assertTrue(np.abs(Tc.Hm0()[0,0]-1) < 1e-3)
+            
+            # feed NONSTATionary this to SWAN and check Hm0=1
             fileb = os.path.splitext(file)[0] + 'time.s2d'
             fb = open(fileb,'w')
             to_file2D(Ta,fb)
             fb.close()  
-            
-            #fc  = open(fileb)
-            #Tc = from_file1D(fc)
-            #fc.close()            
-            
-            # TO DO: implement to_file2D
-        
-            print(file,Ta.Hm0()[0,0])
-            
-            self.assertTrue(np.abs(Ta.Hm0()[0,0]-1) < 1e-3)
+            fc  = open(fileb)
+            Tc = from_file2D(fc)
+            fc.close()            
+            print(file,Tc.Hm0()[0,0])
+            self.assertTrue(np.abs(Tc.Hm0()[0,0]-1) < 1e-3)
 
 if __name__ == '__main__':
 
