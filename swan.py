@@ -5,11 +5,7 @@ Module for handling SWAN input/output, using oceanwwaves package:
   
 """
 
-"""
-$HeadURL:  https://github.com/openearth/pyswan/$
-$Id:  $
-"""
-__version__ = "$Revision: $"
+__version__ = "$Revision: WIP$" # https://git-scm.com/book/en/v2/Customizing-Git-Git-Attributes
 
 #  Copyright notice
 #   --------------------------------------------------------------------
@@ -30,8 +26,8 @@ __version__ = "$Revision: $"
 #   along with this library.  If not, see <http://www.gnu.org/licenses/>.
 #   --------------------------------------------------------------------
 
-# This tool is part of <a href="http://www.OpenEarth.eu">OpenEarthTools</a>.
-# OpenEarthTools is an online collaboration to share and manage data and
+# This tool is part of <a href="https://github.com/openearth/">OpenEarth</a>.
+# OpenEarth is an online collaboration to share and manage data and
 # programming tools in an open source, version controlled environment.
 # Sign up to recieve regular updates of this function, and to contribute
 # your own tools.
