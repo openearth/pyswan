@@ -50,13 +50,14 @@ def from_swan_header(f, source='from_swan'):
     self["source"] = source
     self["text"] = []
     self["version"] = f.readline().split()[1].strip()
-    self["text"].append(f.readline().split('$')[1])
-    self["text"].append(f.readline().split('$')[1])
+    raw = f.readline()
+    while raw.strip()[0] == '$':
+        self["text"].append(raw.split('$')[1].rstrip('\n'))
+        raw = f.readline()
     
     # when
 
-    raw = f.readline()
-    if raw.split()[0].strip() == 'TIME':
+    if raw.split()[0].strip().upper() == 'TIME':
         timecoding = int(f.readline().split()[0].strip())
         raw = f.readline()
     else:
@@ -75,7 +76,7 @@ def from_swan_header(f, source='from_swan'):
         raw = f.readline()
         if debug:
             print('POINT ', i,': ',raw.rstrip())
-        if xy == 'LONLAT':
+        if xy.upper() == 'LONLAT':
             self["lon"].append(float(raw.split()[0]))
             self["lat"].append(float(raw.split()[1]))
             self["x"].append(None)
@@ -91,7 +92,7 @@ def from_swan_header(f, source='from_swan'):
     self["f"] = []
     self["ftype"] = f.readline().split()[0].strip()
     
-    if self["ftype"] == 'CDIR':
+    if self["ftype"].upper() == 'CDIR':
         self["ftype"] = 'cartesian'
     else: # NDIR
         self["ftype"] = 'nautical'
@@ -132,7 +133,7 @@ def from_file2D(f,source='from_swan'):
         self.direction.append(float(raw.split()[0]))
     self.direction = np.asarray(self.direction)
     
-    if direction_type == 'CDIR':
+    if direction_type.upper() == 'CDIR':
         self.direction_units = 'degrees_true'  # CF convention
     else:    
         self.direction_units = 'degrees_north' # CF convention
@@ -211,8 +212,9 @@ def to_file2D(self,f,timecoding=1):
     """      
     
     f.writelines('SWAN ' + str(self.version) + '\n')
-    for t in self.text:
-        f.writelines('$' + t)
+    it = 0
+    for it,t in enumerate(self.text):
+        f.writelines('$' + t + '\n')
         
     # TIME    
     if not timecoding is None:
@@ -222,31 +224,39 @@ def to_file2D(self,f,timecoding=1):
             f.writelines(str(min(1,len(self.x))) + '\n')    
             
     # LOC
-    if self.x[0] == None:
+    if self.lon[0] == None or np.isnan(self.lon[0]):
+        f.writelines('LOCATIONS\n')
+        f.writelines(str(len(self.x)) + '\n')
+        for i in range(len(self.x)):
+            f.write("{:g} {:g}\n".format(self.x[i],self.y[i]))
+        nx = len(self.x)
+    else:
         f.writelines('LONLAT\n')
         f.writelines(str(len(self.lon)) + '\n')
         for i in range(len(self.lon)):
             f.write("{:f} {:f}\n".format(self.lon[i],self.lat[i]))
-    elif self.lon[0] == None:
-        f.writelines('LOCATIONS\n')
-        f.writelines(str(len(self.x)) + '\n')
-        for i in range(len(self.x)):
-            f.write("{:g} {:g}\n".format(self.x[i],self.y[i]))                 
+        nx = len(self.lon)
         
     # FREQ
-    if self.ftype == 'absolute':
-        f.writelines('AFREQ\n')
-    else:    
-        f.writelines('FREQ\n')
+    try:
+        if self.ftype.lower() == 'absolute':
+            f.writelines('AFREQ\n')
+        else:    
+            f.writelines('RFREQ\n')
+    except:
+            f.writelines('AFREQ\n')
     f.writelines(str(len(self.f))+ '\n')
     for freq in self.f:
         f.writelines("{:g}\n".format(freq))
 
     # DIR
-    if self.direction_units =='degrees_North':
+    if self.direction_units.lower() == 'degrees_true':
+        f.writelines('CDIR\n')
+    elif self.direction_units.lower() == 'degrees_north':
         f.writelines('NDIR\n')
     else:    
-        f.writelines('CDIR\n')
+        f.writelines('NDIR\n')
+        print('no units defined, assumed NDIR')
     f.writelines(str(len(self.direction))+ '\n')
     for dir in self.direction:
         f.writelines("{:g}\n".format(dir))
@@ -265,7 +275,7 @@ def to_file2D(self,f,timecoding=1):
                 if debug:
                     print('time ',self.t[it])        
                 f.writelines("{:%Y%m%d.%H%M%S}                         date and time\n".format(self.t[it]))
-        for ix,x in enumerate(self.x):
+        for ix in range(nx):
             f.writelines('FACTOR \n1\n'.format(ix+1)) # LOCATION
             for ifr,fr in enumerate(self.f):
                 for idr,dr in enumerate(self.direction):
@@ -308,7 +318,7 @@ def from_file1D(f,source='from_swan'):
     self.energy_units    = quantity_units[0]
     self.direction_units = quantity_units[1]
     self.spreading_units = quantity_units[2]
-    if quantity_names[1] == 'CDIR':
+    if quantity_names[1].upper() == 'CDIR':
         self.direction_units = 'degrees_true'  # CF convention
     else:    
         self.direction_units = 'degrees_north' # CF convention
@@ -390,8 +400,9 @@ def to_file1D(self,f,timecoding=1):
     """          
     
     f.writelines('SWAN ' + str(self.version) + '\n')
-    for t in self.text:
-        f.writelines('$' + t)
+    it = 0
+    for it,t in enumerate(self.text):
+        f.writelines('$' + t + '\n')
         
     # TIME    
     if not timecoding is None:
@@ -401,22 +412,27 @@ def to_file1D(self,f,timecoding=1):
             f.writelines(str(min(1,len(self.x))) + '\n')
 
     # LOC
-    if self.x[0] == None:
-        f.writelines('LONLAT\n')
-        f.writelines(str(len(self.lon)) + '\n')
-        for i in range(len(self.lon)):
-            f.write("{:g} {:g}\n".format(self.lon[i],self.lat[i]))
-    elif self.lon[0] == None:
+    if self.lon[0] == None or np.isnan(self.lon[0]):
         f.writelines('LOCATIONS\n')
         f.writelines(str(len(self.x)) + '\n')
         for i in range(len(self.x)):
-            f.write("{:g} {:g}\n".format(self.x[i],self.y[i]))                 
+            f.write("{:g} {:g}\n".format(self.x[i],self.y[i]))
+        nx = len(self.x)
+    else:
+        f.writelines('LONLAT\n')
+        f.writelines(str(len(self.lon)) + '\n')
+        for i in range(len(self.lon)):
+            f.write("{:f} {:f}\n".format(self.lon[i],self.lat[i]))
+        nx = len(self.lon)            
         
     # FREQ
-    if self.ftype == 'absolute':
-        f.writelines('AFREQ\n')
-    else:    
-        f.writelines('FREQ\n')
+    try:
+        if self.ftype.lower() == 'absolute':
+            f.writelines('AFREQ\n')
+        else:    
+            f.writelines('RFREQ\n')
+    except:
+            f.writelines('AFREQ\n')
     f.writelines(str(len(self.f))+ '\n')
     for freq in self.f:
         f.writelines("{:g}\n".format(freq))
@@ -429,10 +445,13 @@ def to_file1D(self,f,timecoding=1):
     f.writelines(self.energy_units + '\n')
     f.writelines('NaN' + '\n')
 
-    if self.direction_units == 'degrees_true':
+    if self.direction_units.lower() == 'degrees_true':
         f.writelines('CDIR\n')
+    elif self.direction_units.lower() == 'degrees_north':
+        f.writelines('NDIR\n')
     else:    
         f.writelines('NDIR\n')
+        print('no units defined, assumed NDIR')
     f.writelines(self.direction_units + '\n')
     f.writelines('NaN' + '\n')
 
@@ -571,6 +590,24 @@ class TestSuite(unittest.TestCase):
             fc.close()
             print(file,Tc.Hm0()[0,0])
             self.assertTrue(np.abs(Tc.Hm0()[0,0]-1) < 1e-3)
+            
+        # now generated spectrum
+        dirs = list(np.arange(-12,13)*15)
+        f    = np.linspace(0.0250,.5,40)
+        t    = [datetime.datetime(2016,1,1),datetime.datetime(2016,1,2),datetime.datetime(2016,1,3)]
+        x    = [0,100]
+        y    = [0,0]            
+        Sp1 = ow.Spec1(f=f,y=y,x=x,t=t)
+        Sp1.from_jonswap(1,5)
+        Sp1.direction = Sp1.energy*0-90
+        Sp1.spreading = Sp1.energy*0+2
+        file = r'./testdata/1dgenerated.spc'
+        with open(file,'w') as f:
+            to_file1D(Sp1,f)
+        with open(file,'r') as f:
+            T1 = from_file1D(f)      
+        print(file,T1.Hm0()[0,0])
+        self.assertTrue(np.abs(T1.Hm0()[0,0]-1) < 1e-3)            
         
     def test_swan2Dxy(self):
         """Test that Hm0=1 after cycle of: read > write > read,
@@ -609,6 +646,22 @@ class TestSuite(unittest.TestCase):
             fc.close()            
             print(file,Tc.Hm0()[0,0])
             self.assertTrue(np.abs(Tc.Hm0()[0,0]-1) < 1e-3)
+            
+        # now generated spectrum
+        dirs = list(np.arange(-12,13)*15)
+        f    = np.linspace(0.0250,.5,40)
+        t    = [datetime.datetime(2016,1,1),datetime.datetime(2016,1,2),datetime.datetime(2016,1,3)]
+        x    = [0,100]
+        y    = [0,0]            
+        Sp2 = ow.Spec2(direction=dirs,f=f,y=y,x=x,t=t)
+        Sp2.from_jonswap(1,5,-90,2)
+        file = r'./testdata/2dgenerated.spc'
+        with open(file,'w') as f:
+            to_file2D(Sp2,f)
+        with open(file,'r') as f:
+            T2 = from_file2D(f)      
+        print(file,T2.Hm0()[0,0])
+        self.assertTrue(np.abs(T2.Hm0()[0,0]-1) < 1e-3)               
 
 if __name__ == '__main__':
 

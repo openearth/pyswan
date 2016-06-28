@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Module for handling spectral ocean wave data. We adhere to the following conventions:
- * directions:   nautical convention: CF units degrees_true
+Module for handling spectral ocean wave data.
+We adhere to the following conventions if not specified otherwise:
+ * directions:   nautical convention: CF units 'degrees_north' (choice 'degrees_true')
  * time:         UTC
  * coordinates:  speherical WGS84
  * energy units: [m2/Hz/deg]
@@ -94,10 +95,10 @@ def directional_spreading(dirs,pdir,ms,units='deg'):
     from math import gamma
     dirs = np.asarray(dirs) # also accept list
 
-    if units=='deg':
+    if units[0:3]=='deg': # degrees_north or degrees_true
         dirs = dirs*np.pi/180
         pdir = pdir*np.pi/180
-    elif units=='rad':
+    elif units[0:3]=='rad':
         dirs = dirs + 0. # ensure real
         pass
     else:
@@ -109,16 +110,16 @@ def directional_spreading(dirs,pdir,ms,units='deg'):
         acos = np.cos((dirs[i] - pdir))
         if acos > 0:
             cdir[i] = A1*np.max(acos**ms, 1e-10)
-    if units=='deg':
+    if units[0:3]=='deg':
         cdir = cdir*np.pi/180
-    elif units=='rad':
+    elif units[0:3]=='rad':
         pass
     else:
         raise('unknown units')    
         
     # check for ill-sampling
     intz = np.trapz(cdir,dirs)*180/np.pi
-    if not(abs(intz-1)< 1e-6):
+    if not(abs(intz-1)< 1e-4):
         print('integral not 1 for ms=',ms,':',intz) 
 
     return cdir
@@ -144,27 +145,27 @@ class Spec2():
         self.y               = [np.nan]
         self.lon             = [np.nan]
         self.lat             = [np.nan]
-        self.epsg            = []# epsg for (x,y) <-> (lon,lat)
+        self.epsg            = [] # epsg for (x,y) <-> (lon,lat)
         self.text            = []
         self.version         = [] 
         
-        self.energy_units    = ''
-        self.direction_units = '' # implicit directiontype: degrees_north or degrees_true, radians??      
+        self.energy_units    = 'm2/Hz/deg'
+        self.direction_units = 'degrees_north' # implicit directiontype: degrees_north or degrees_true, radians??      
 
         self.__dict__.update(kwargs)    
         
         nt = len(self.t)
-        nx = len(self.x)
+        nx = max(len(self.x),len(self.lon))
         nf = len(self.f)
         nd = len(self.direction)
         
         self.energy          = np.asarray(np.nan*np.zeros((nt,nx,nf,nd)))  # [t,xy,f,dir] or [xy,f,dir] or [f,dir] # last dimension 'dir' extra wrt Spec1
         
         energy = np.asarray(kwargs.pop('energy',self.energy))
-        if energy.shape==(len(self.t),len(self.x),len(self.f),len(self.direction)):
+        if energy.shape==(nt,nx,nf,nd):
             self.energy = np.asarray(energy)
         else:
-            raise Exception('dimensions E '+str(energy.shape)+' do not match t,x,f,direction '+str((len(self.t),len(self.x),len(self.f),len(self.direction))))        
+            raise Exception('dimensions E '+str(energy.shape)+' do not match t,x,f,direction '+str((nt,nx,nf,nd)))        
         
     def __repr__(self):
     
@@ -283,13 +284,17 @@ class Spec2():
     #@static
     def plot(self,fname=None,it=0,ix=0):        
         """
-        plot 2D spectrum (to file)
+        plot 2D spectrum (to file) (assumes directions in degrees_north if empty).
         """ 
         
         f = np.tile(self.f        ,[len(self.direction),1]).T
         d = np.tile(self.direction,[len(self.f),1])
-        fx,lx = f*np.cos(90-d*np.pi/180),'f'
-        fy,ly = f*np.sin(90-d*np.pi/180),'f'
+        if self.direction_units=='degrees_true': # degrees_north or degrees_true
+            fx,lx = f*np.cos(d*np.pi/180),'f'
+            fy,ly = f*np.sin(d*np.pi/180),'f'
+        else: # degrees_north or empty
+            fx,lx = f*np.cos(np.pi/2-d*np.pi/180),'f'
+            fy,ly = f*np.sin(np.pi/2-d*np.pi/180),'f'
         
         #fx,lx = self.direction,'direction'
         #fy,ly = self.f        ,'f'
@@ -340,14 +345,14 @@ class Spec1():
         self.text            = []
         self.version         = []         
         
-        self.energy_units    = ''
-        self.direction_units = '' # implicit directiontype: degrees_north or degrees_true
-        self.spreading_units = ''
+        self.energy_units    = 'm2/Hz/deg'
+        self.direction_units = 'degrees_north' # implicit directiontype: degrees_north or degrees_true
+        self.spreading_units = 'degr'
         
         self.__dict__.update(kwargs) # get f for making E,direction,spreading
         
         nt = len(self.t)
-        nx = len(self.x)
+        nx = max(len(self.x),len(self.lon))
         nf = len(self.f)
         
         self.energy          = np.asarray(np.nan*np.zeros((nt,nx,nf)))  # [t,xy,f] # last dimension 'f' extra wrt Spec1
@@ -355,22 +360,22 @@ class Spec1():
         self.spreading       = np.asarray(np.nan*np.zeros((nt,nx,nf)))  # [t,xy,f]
         
         energy = np.asarray(kwargs.pop('energy',self.energy))
-        if energy.shape==(len(self.t),len(self.x),len(self.f)):
+        if energy.shape==(nt,nx,nf):
             self.energy = np.asarray(energy)
         else:
-            raise Exception('dimensions E '+str(energy.shape)+' do not match t,x,f '+str((len(self.t),len(self.x),len(self.f))))
+            raise Exception('dimensions E '+str(energy.shape)+' do not match t,x,f '+str((nt,nx,nf)))
             
         direction = np.asarray(kwargs.pop('direction',self.direction))
-        if direction.shape==(len(self.t),len(self.x),len(self.f)):
+        if direction.shape==(nt,nx,nf):
             self.direction = np.asarray(direction)
         else:
-            raise Exception('dimensions E '+str(direction.shape)+' do not match t,x,f '+str((len(self.t),len(self.x),len(self.f))))
+            raise Exception('dimensions E '+str(direction.shape)+' do not match t,x,f '+str((nt,nx,nf)))
 
         spreading = np.asarray(kwargs.pop('spreading',self.spreading))
-        if spreading.shape==(len(self.t),len(self.x),len(self.f)):
+        if spreading.shape==(nt,nx,nf):
             self.spreading = np.asarray(spreading)
         else:
-            raise Exception('dimensions E '+str(spreading.shape)+' do not match t,x,f '+str((len(self.t),len(self.x),len(self.f))))            
+            raise Exception('dimensions E '+str(spreading.shape)+' do not match t,x,f '+str((nt,nx,nf)))            
         
     def __repr__(self):
         
@@ -390,14 +395,18 @@ class Spec1():
     def from_jonswap(self,Hm0,Tp,**kwargs):
         """
         Generate 1D JONSWAP spectrum
-        Sp1 = swan.Spec1(f=f,t=t,x=x)
-        Sp1.from_jonswap(Hm0,Tp)
+        >> Sp1 = swan.Spec1(f=f,t=t,x=x)
+        >> Sp1.from_jonswap(Hm0,Tp)
+        
+        Set spreading and direction as 
+        >> Sp1.spreading = Sp1.energy*0+pdir
+        >> Sp1.direction = Sp1.energy*0+ms
         
         """
         
         for it in range(len(self.t)):
             for ix in range(len(self.x)):
-                self.energy[it,ix] = jonswap(self.f,Hm0,Tp,**kwargs)
+                self.energy[it,ix]    = jonswap(self.f,Hm0,Tp,**kwargs)
         
         self.energy_units = 'm2/Hz'  
 
