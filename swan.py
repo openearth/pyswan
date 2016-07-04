@@ -229,13 +229,13 @@ def to_file2D(self,f,timecoding=1):
         f.writelines(str(len(self.x)) + '\n')
         for i in range(len(self.x)):
             f.write("{:g} {:g}\n".format(self.x[i],self.y[i]))
-        nx = len(self.x)
+        nxy = len(self.x)
     else:
         f.writelines('LONLAT\n')
         f.writelines(str(len(self.lon)) + '\n')
         for i in range(len(self.lon)):
             f.write("{:f} {:f}\n".format(self.lon[i],self.lat[i]))
-        nx = len(self.lon)
+        nxy = len(self.lon)
         
     # FREQ
     try:
@@ -275,7 +275,7 @@ def to_file2D(self,f,timecoding=1):
                 if debug:
                     print('time ',self.t[it])        
                 f.writelines("{:%Y%m%d.%H%M%S}                         date and time\n".format(self.t[it]))
-        for ix in range(nx):
+        for ix in range(nxy):
             f.writelines('FACTOR \n1\n'.format(ix+1)) # LOCATION
             for ifr,fr in enumerate(self.f):
                 for idr,dr in enumerate(self.direction):
@@ -417,13 +417,13 @@ def to_file1D(self,f,timecoding=1):
         f.writelines(str(len(self.x)) + '\n')
         for i in range(len(self.x)):
             f.write("{:g} {:g}\n".format(self.x[i],self.y[i]))
-        nx = len(self.x)
+        nxy = len(self.x)
     else:
         f.writelines('LONLAT\n')
         f.writelines(str(len(self.lon)) + '\n')
         for i in range(len(self.lon)):
             f.write("{:f} {:f}\n".format(self.lon[i],self.lat[i]))
-        nx = len(self.lon)            
+        nxy = len(self.lon)            
         
     # FREQ
     try:
@@ -466,7 +466,7 @@ def to_file1D(self,f,timecoding=1):
                 if debug:
                     print('time ',self.t[it])        
                 f.writelines("{:%Y%m%d.%H%M%S}                         date and time\n".format(self.t[it]))
-        for ix,x in enumerate(self.x):
+        for ix in range(nxy):
             f.writelines('LOCATION {:d} \n'.format(ix+1))
             for ifr,fr in enumerate(self.f):
                 f.writelines('{:f} {:} {:g} \n'.format(self.energy[it,ix,ifr],self.direction[it,ix,ifr],self.spreading[it,ix,ifr]))
@@ -593,21 +593,41 @@ class TestSuite(unittest.TestCase):
             
         # now generated spectrum
         dirs = list(np.arange(-12,13)*15)
-        f    = np.linspace(0.0250,.5,40)
+        f    = np.linspace(0.0250,1,40)
         t    = [datetime.datetime(2016,1,1),datetime.datetime(2016,1,2),datetime.datetime(2016,1,3)]
         x    = [0,100]
         y    = [0,0]            
         Sp1 = ow.Spec1(f=f,y=y,x=x,t=t)
         Sp1.from_jonswap(1,5)
         Sp1.direction = Sp1.energy*0-90
-        Sp1.spreading = Sp1.energy*0+2
-        file = r'./testdata/1dgenerated.spc'
+        Sp1.spreading = Sp1.energy*0+10
+        file = r'./testdata/1dgeneratedxy.spc'
         with open(file,'w') as f:
             to_file1D(Sp1,f)
         with open(file,'r') as f:
             T1 = from_file1D(f)      
         print(file,T1.Hm0()[0,0])
         self.assertTrue(np.abs(T1.Hm0()[0,0]-1) < 1e-3)            
+
+        # now generated spectrum
+        dirs = list(np.arange(-12,13)*15)
+        f    = np.linspace(0.0250,1,40)
+        t    = [np.nan]
+        x    = [0,100]
+        y    = [0,0]            
+        Sp1 = ow.Spec1(f=f,lat=y,lon=x,t=t)
+        Sp1.from_jonswap(1,5)
+        Sp1.direction = Sp1.energy*0-90
+        Sp1.spreading = Sp1.energy*0+10
+        file = r'./testdata/1dgeneratedllstat.spc'
+        with open(file,'w') as f:
+            to_file1D(Sp1,f)
+        with open(file,'r') as f:
+            T1 = from_file1D(f)      
+        print(file,T1.Hm0()[0,0])
+        self.assertTrue(np.abs(T1.Hm0()[0,0]-1) < 1e-3)            
+
+
         
     def test_swan2Dxy(self):
         """Test that Hm0=1 after cycle of: read > write > read,
@@ -649,13 +669,13 @@ class TestSuite(unittest.TestCase):
             
         # now generated spectrum
         dirs = list(np.arange(-12,13)*15)
-        f    = np.linspace(0.0250,.5,40)
+        f    = np.linspace(0.0250,1,40)
         t    = [datetime.datetime(2016,1,1),datetime.datetime(2016,1,2),datetime.datetime(2016,1,3)]
         x    = [0,100]
         y    = [0,0]            
         Sp2 = ow.Spec2(direction=dirs,f=f,y=y,x=x,t=t)
-        Sp2.from_jonswap(1,5,-90,2)
-        file = r'./testdata/2dgenerated.spc'
+        Sp2.from_jonswap(1,5,-90,10)
+        file = r'./testdata/2dgeneratedxy.spc'
         with open(file,'w') as f:
             to_file2D(Sp2,f)
         with open(file,'r') as f:
@@ -663,6 +683,23 @@ class TestSuite(unittest.TestCase):
         print(file,T2.Hm0()[0,0])
         self.assertTrue(np.abs(T2.Hm0()[0,0]-1) < 1e-3)               
 
+        # now generated spectrum
+        dirs = list(np.arange(-12,13)*15)
+        f    = np.linspace(0.0250,1,40)
+        t    = [np.nan]
+        x    = [0,100]
+        y    = [0,0]            
+        Sp2 = ow.Spec2(direction=dirs,f=f,lat=y,lon=x,t=t)
+        Sp2.from_jonswap(1,5,-90,10)
+        file = r'./testdata/2dgeneratedllstat.spc'
+        with open(file,'w') as f:
+            to_file2D(Sp2,f)
+        with open(file,'r') as f:
+            T2 = from_file2D(f)      
+        print(file,T2.Hm0()[0,0])
+        self.assertTrue(np.abs(T2.Hm0()[0,0]-1) < 1e-3)               
+        
+        
 if __name__ == '__main__':
 
     unittest.main()
