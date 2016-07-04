@@ -1,6 +1,6 @@
 PROJ 'flume shoaling' '000' '' '' ''
 SET NAUTICAL
-MODE NONSTat ONED
+MODE STAT ONED
 $
 $ CGRID [xpc] [ypc] [alpc] [xlenc] [ylenc] [mxc] [myc] SECTOR [dir1] [dir2] [mdc] [flow]  [fhigh] [msc]
   CGRID  0.    0.    0.     1000.   0.      100   0    SECTOR  -180   180   23    0.025    1      39
@@ -12,7 +12,7 @@ $
   BOUN SHAPE BIN PEAK DSPR POWER
 $
 $ BOUN SIDE W CCW VAR FILE [len] ’fname’ [seq]
-  BOUN SIDE W CCW VAR FILE  0    '2dgeneratedxy.spc'
+  BOUN SIDE W CCW VAR FILE  0    '2D_xystat.spc'
 $
   PROP BSBT
   NUM ACCUR   0.020    0.020    0.020   100.000   NONSTAT 5
@@ -22,9 +22,9 @@ OFF WINDG
 OFF QUAD
 $
 CURVE  'GAUGE' 0. 0.  100  1000. 0.
-TABLE  'GAUGE' HEAD   '2dgeneratedxy.crv' XP YP PDIR HSIGN RTP TM01 TM02 DEP
+TABLE  'GAUGE' HEAD   '2D_xystat.crv' XP YP PDIR HSIGN RTP TM01 TM02 DEP
 CURVE  'PNTS' 0. 0.  1  100. 0.
-SPEC   'PNTS' SPEC1D '2dgeneratedxy.s1d'
+SPEC   'PNTS' SPEC1D '2D_xystat.s1d'
 $
-COMPUTE NONSTat 20160101.000000 1 MIN 20160101.001000
-STOP 
+COMPUTE STAT
+STOP

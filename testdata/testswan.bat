@@ -1,4 +1,8 @@
-call swanrun xyndirrfreq1
-call swanrun xyndirrfreq1stat
-call swanrun llcdirafreq1
-call swanrun llcdirafreq1stat
+call swanrun 1D_llstat
+call swanrun 1D_lltime
+call swanrun 1D_xystat
+call swanrun 1D_xytime
+call swanrun 2D_llstat
+call swanrun 2D_lltime
+call swanrun 2D_xystat
+call swanrun 2D_xytime

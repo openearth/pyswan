@@ -154,18 +154,18 @@ class Spec2():
 
         self.__dict__.update(kwargs)    
         
-        nt = len(self.t)
-        nx = max(len(self.x),len(self.lon))
-        nf = len(self.f)
-        nd = len(self.direction)
+        nt  = len(self.t)
+        nxy = max(len(self.x),len(self.lon))
+        nf  = len(self.f)
+        nd  = len(self.direction)
         
-        self.energy          = np.asarray(np.nan*np.zeros((nt,nx,nf,nd)))  # [t,xy,f,dir] or [xy,f,dir] or [f,dir] # last dimension 'dir' extra wrt Spec1
+        self.energy          = np.asarray(np.nan*np.zeros((nt,nxy,nf,nd)))  # [t,xy,f,dir] or [xy,f,dir] or [f,dir] # last dimension 'dir' extra wrt Spec1
         
         energy = np.asarray(kwargs.pop('energy',self.energy))
-        if energy.shape==(nt,nx,nf,nd):
+        if energy.shape==(nt,nxy,nf,nd):
             self.energy = np.asarray(energy)
         else:
-            raise Exception('dimensions E '+str(energy.shape)+' do not match t,x,f,direction '+str((nt,nx,nf,nd)))        
+            raise Exception('dimensions E '+str(energy.shape)+' do not match t,x,f,direction '+str((nt,nxy,nf,nd)))        
         
     def __repr__(self):
     
@@ -265,14 +265,17 @@ class Spec2():
         """
         Generate 2D JONSWAP spectrum
         >> Sp2 = swan.Spec2(f=f,t=t,x=x,direction=d)
-        >> Sp2.from_jonswap(Hm0,Tp)
+        >> Sp2.from_jonswap(Hm0,Tp,pdir,ms)
         
         """
 
         energy1 = jonswap(self.f,Hm0,Tp,**kwargs)
+        
+        nxy = max(len(self.x),len(self.lon))
+        
         #self.energy = np.tile(Sp1.energy,[len(self.direction),1]).T
         for it in range(len(self.t)):
-            for ix in range(len(self.x)):
+            for ix in range(nxy):
                 for iff,v in enumerate(self.f):
                     cdir = directional_spreading(self.direction,pdir,ms) # ms[iff]
                     self.energy[it,ix,iff,:] = cdir*energy1[iff];        
@@ -351,31 +354,31 @@ class Spec1():
         
         self.__dict__.update(kwargs) # get f for making E,direction,spreading
         
-        nt = len(self.t)
-        nx = max(len(self.x),len(self.lon))
-        nf = len(self.f)
+        nt  = len(self.t)
+        nxy = max(len(self.x),len(self.lon))
+        nf  = len(self.f)
         
-        self.energy          = np.asarray(np.nan*np.zeros((nt,nx,nf)))  # [t,xy,f] # last dimension 'f' extra wrt Spec1
-        self.direction       = np.asarray(np.nan*np.zeros((nt,nx,nf)))  # [t,xy,f] or [xy,f] or [f]
-        self.spreading       = np.asarray(np.nan*np.zeros((nt,nx,nf)))  # [t,xy,f]
+        self.energy          = np.asarray(np.nan*np.zeros((nt,nxy,nf)))  # [t,xy,f] # last dimension 'f' extra wrt Spec1
+        self.direction       = np.asarray(np.nan*np.zeros((nt,nxy,nf)))  # [t,xy,f] or [xy,f] or [f]
+        self.spreading       = np.asarray(np.nan*np.zeros((nt,nxy,nf)))  # [t,xy,f]
         
         energy = np.asarray(kwargs.pop('energy',self.energy))
-        if energy.shape==(nt,nx,nf):
+        if energy.shape==(nt,nxy,nf):
             self.energy = np.asarray(energy)
         else:
-            raise Exception('dimensions E '+str(energy.shape)+' do not match t,x,f '+str((nt,nx,nf)))
+            raise Exception('dimensions E '+str(energy.shape)+' do not match t,x,f '+str((nt,nxy,nf)))
             
         direction = np.asarray(kwargs.pop('direction',self.direction))
-        if direction.shape==(nt,nx,nf):
+        if direction.shape==(nt,nxy,nf):
             self.direction = np.asarray(direction)
         else:
-            raise Exception('dimensions E '+str(direction.shape)+' do not match t,x,f '+str((nt,nx,nf)))
+            raise Exception('dimensions E '+str(direction.shape)+' do not match t,x,f '+str((nt,nxy,nf)))
 
         spreading = np.asarray(kwargs.pop('spreading',self.spreading))
-        if spreading.shape==(nt,nx,nf):
+        if spreading.shape==(nt,nxy,nf):
             self.spreading = np.asarray(spreading)
         else:
-            raise Exception('dimensions E '+str(spreading.shape)+' do not match t,x,f '+str((nt,nx,nf)))            
+            raise Exception('dimensions E '+str(spreading.shape)+' do not match t,x,f '+str((nt,nxy,nf)))            
         
     def __repr__(self):
         
@@ -392,21 +395,22 @@ class Spec1():
    #def Tmij(self):
    #TO DO calculate period based on various spectral moments
    
-    def from_jonswap(self,Hm0,Tp,**kwargs):
+    def from_jonswap(self,Hm0,Tp,pdir,ms,**kwargs):    
         """
         Generate 1D JONSWAP spectrum
         >> Sp1 = swan.Spec1(f=f,t=t,x=x)
-        >> Sp1.from_jonswap(Hm0,Tp)
+        >> Sp1.from_jonswap(Hm0,Tp,pdir,ms)
         
-        Set spreading and direction as 
-        >> Sp1.spreading = Sp1.energy*0+pdir
-        >> Sp1.direction = Sp1.energy*0+ms
+        """        
         
-        """
+        nxy = max(len(self.x),len(self.lon))        
         
         for it in range(len(self.t)):
-            for ix in range(len(self.x)):
+            for ix in range(nxy):
                 self.energy[it,ix]    = jonswap(self.f,Hm0,Tp,**kwargs)
+                
+        self.spreading = self.energy*0+ms
+        self.direction = self.energy*0+pdir              
         
         self.energy_units = 'm2/Hz'  
 
