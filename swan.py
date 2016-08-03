@@ -553,5 +553,7 @@ def from_file0D(f,source='from_swan'):
 
 if __name__ == '__main__':
 
+    from swantest import TestSuite
+    import unittest
     unittest.main()
     
