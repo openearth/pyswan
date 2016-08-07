@@ -41,6 +41,7 @@ __version__ = "$Revision: WIP$" # https://git-scm.com/book/en/v2/Customizing-Git
 
 import numpy as np
 import datetime
+import scipy.integrate # cumtrapz
 debug = False
 
 def jonswap(f,Hm0,Tp,
@@ -188,14 +189,41 @@ class Spec2():
    #TO DO calculate period based on various spectral moments
    
     
-    def Hm0(self):
+    def Hm0(self, fmin=0, fmax=np.inf):
         """
-        Integrate Hm0 (Hs) from wave spectra: S = swan.Spec2(), S.Hm0()
+        Integrate Hm0 (Hs) from wave spectra: 
+        >> S = swan.Spec2()
+        >> self.from_jonswap(1,5,-90,10)
+        >> S.Hm0()
+        
+        Optionallly parse a frequency range with kwargs fmin, fmax.
+        This methods interpolated the cumulative m0 integral, 
+        so is independent from the frequency discretrization.
+        E.g. for swell wave height (SWAN default 0.1 Hz): 
+        >> S.Hm0(fmax = 0.1)        
         """
+
     
         if self.energy_units[0:9] == 'm2/Hz/deg': # deg, degr, degree
             # np.abs: descending directions lead to negs
-            m0 = np.trapz(np.abs(np.trapz(self.energy,self.direction)),self.f, axis=-1) # int along last dimension
+            
+            spec1 = np.abs(np.trapz(self.energy,self.direction)) # implement directional range?
+            
+            if fmin==0 and fmax==np.inf:
+            
+                m0 = np.trapz(spec1,self.f, axis=-1) # int along last dimension
+                
+            else: # frequency range
+
+                Efcum = scipy.integrate.cumtrapz(spec1,self.f,axis=-1,initial=0)
+                
+                m0 = np.ones(list(Efcum.shape)[0:2]) # preallocate
+                for it,a in enumerate(m0):
+                    for ix,b in enumerate(a):
+                        m0[it,ix] = np.interp(fmax,self.f,Efcum[it,ix,:]) - \
+                                    np.interp(fmin,self.f,Efcum[it,ix,:])               
+            
+            
         else:
             m0 = None
             print('unknown units:"',self.energy_units,'"')
@@ -416,13 +444,37 @@ class Spec1():
 
         return self
 
-    def Hm0(self):
+    def Hm0(self, fmin=0, fmax=np.inf):
         """
-        Integrate Hm0 (Hs) from wave spectra: S = swan.Spec1(), S.Hm0()
+        Integrate Hm0 (Hs) from wave spectra: 
+        >> S = swan.Spec1()
+        >> self.from_jonswap(1,5,-90,10)
+        >> S.Hm0()
+        
+        Optionallly parse a frequency range with kwargs fmin, fmax.
+        This methods interpolated the cumulative m0 integral, 
+        so is independent from the frequency discretrization.
+        E.g. for swell wave height (SWAN default 0.1 Hz): 
+        >> S.Hm0(fmax = 0.1)
         """
+        
     
         if self.energy_units == 'm2/Hz':
-            m0 = np.trapz(self.energy,self.f, axis=-1) # int along last dimension
+        
+            if fmin==0 and fmax==np.inf:
+            
+                m0 = np.trapz(self.energy,self.f, axis=-1) # int along last dimension
+                
+            else: # frequency range
+            
+                Efcum = scipy.integrate.cumtrapz(self.energy,self.f,axis=-1,initial=0)
+                
+                m0 = np.ones(list(Efcum.shape)[0:2]) # preallocate
+                for it,a in enumerate(m0):
+                    for ix,b in enumerate(a):
+                        m0[it,ix] = np.interp(fmax,self.f,Efcum[it,ix,:]) - \
+                                    np.interp(fmin,self.f,Efcum[it,ix,:])                
+                
         else:
             m0 = None
             print('unknown units',self.energy_units)
@@ -614,4 +666,5 @@ class Spec0():
 
 if __name__ == '__main__':
 
+    print('oceanwaves is tested via swantest')
     pass            
