@@ -35,7 +35,7 @@ class TestSuite(unittest.TestCase):
             with open(file[i],'r') as fid:
                 T = swan.from_file1D(fid)     
             T.plot(os.path.splitext(file[i])[0] + '.png')                
-            print(file[i],T.Hm0()[0,0])
+            print(file[i],T.Hm0()[0,0],T.Hm0(fmax=0.2)[0,0]**2+T.Hm0(fmin=0.2)[0,0]**2)
             self.assertTrue(np.abs(T.Hm0()[0,0]-1) < 1e-3)            
             # feed files to SWAN and check Hm0=1
             
@@ -68,7 +68,7 @@ class TestSuite(unittest.TestCase):
             with open(file[i],'r') as fid:
                 T = swan.from_file2D(fid)     
             T.plot(os.path.splitext(file[i])[0] + '.png')                
-            print(file[i],T.Hm0()[0,0])
+            print(file[i],T.Hm0()[0,0],T.Hm0(fmax=0.2)[0,0]**2+T.Hm0(fmin=0.2)[0,0]**2)
             self.assertTrue(np.abs(T.Hm0()[0,0]-1) < 1e-3)            
             # feed files to SWAN and check Hm0=1          
             
