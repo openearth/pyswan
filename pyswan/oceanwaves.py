@@ -313,44 +313,42 @@ class Spec2():
         return self
         
     #@static
-    def plot(self,fname=None,it=0,ix=0):        
+    def plot(self, fname=None, figsize=(10,10), fontsize=7, dpi=400, it=0, ix=0):
         """
         plot 2D spectrum (to file) (assumes directions in degrees_north if empty).
         """ 
-        
-        f = np.tile(self.f        ,[len(self.direction),1]).T
-        d = np.tile(self.direction,[len(self.f),1])
-        if self.direction_units=='degrees_true': # degrees_north or degrees_true
-            fx,lx = f*np.cos(d*np.pi/180),'f'
-            fy,ly = f*np.sin(d*np.pi/180),'f'
-        else: # degrees_north or empty
-            fx,lx = f*np.cos(np.pi/2-d*np.pi/180),'f'
-            fy,ly = f*np.sin(np.pi/2-d*np.pi/180),'f'
-        
-        #fx,lx = self.direction,'direction'
-        #fy,ly = self.f        ,'f'
+
+        ic = range(len(self.direction)) + [0] # circular indices
         
         import matplotlib.pyplot as plt
-        if not fname is None:
-            fig=plt.figure()
-            fig.set_figwidth(10)
-        ax = plt.axes([0.15,.15,0.8,0.8])
-        ax.set_xlabel(lx)
-        ax.set_ylabel(ly)
-        #if   len(self.energy.shape)==2:        
-        #    plt.pcolormesh(fx,fy,self.energy[:,:])        
-        #elif   len(self.energy.shape)==3:        
-        #    plt.pcolormesh(fx,fy,self.energy[ix,:,:])        
-        #elif   len(self.energy.shape)==4:        
-        plt.pcolormesh(fx,fy,self.energy[it,ix,:,:])        
-        ax.set_title(str(self.t[it])+'  [' + str(self.lat[ix]) + ' °N,'+ str(self.lon[ix]) + ' °E]')
-        plt.axis('equal')
+        fig, axs = plt.subplots(figsize=figsize, subplot_kw={'projection':'polar'})
+        axs.pcolormesh(np.radians(self.direction)[ic], self.f, self.energy[it,ix,:,ic].T)
+
+        # construct title
+        title_time, title_loc = None, None
+        if ~np.isnan(self.t[it]):
+            title_time = '%f' % self.t[it]
+        if self.lat[ix] is not None and self.lon[ix] is not None:
+            title_loc = '%0.4f $\mathrm{^\circ N}$, %0.4f $\mathrm{^\circ E}$' % (self.lat[ix], self.lon[ix])
+        if title_time and title_loc:
+            title = '%s [%s]' % (title_time, title_loc)
+        elif title_time:
+            title = title_time
+        elif title_loc:
+            title = title_loc
+        else:
+            title = None
+        if title:
+            axs.set_title(title)
+            
+        axs.set_aspect('equal')
+        axs.set_theta_offset(np.radians(90))
         
         if not fname is None:
-            plt.savefig(fname, fontsize=7, dpi=400)
-            plt.close()
+            fig.savefig(fname, fontsize=fontsize, dpi=dpi)
+            fig.close()
         else:
-            return ax
+            return axs
 
 class Spec1():
     """
