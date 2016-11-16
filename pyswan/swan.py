@@ -119,7 +119,7 @@ def from_file2D(f,source='from_swan'):
     
     D, timecoding = from_swan_header(f)
     for k in D.keys():
-        self.__setattr__(k, D[k])    
+        setattr(self, k, D[k])    
     self.source = source
     
     # direction
@@ -300,7 +300,7 @@ def from_file1D(f,source='from_swan'):
     
     D, timecoding = from_swan_header(f)
     for k in D.keys():
-        self.__setattr__(k, D[k])
+        setattr(self, k, D[k])
     self.source = source
     
     # what
