@@ -13,10 +13,10 @@ class TestSuite(unittest.TestCase):
                  [np.nan],
                  [datetime.datetime(2016,1,1),datetime.datetime(2016,1,2),datetime.datetime(2016,1,3)],
                  [np.nan]]
-        file  = [r'./testdata/1D_lltime.spc',
-                 r'./testdata/1D_llstat.spc',
-                 r'./testdata/1D_xytime.spc',
-                 r'./testdata/1D_xystat.spc']
+        file  = [r'../data/1D_lltime.spc',
+                 r'../data/1D_llstat.spc',
+                 r'../data/1D_xytime.spc',
+                 r'../data/1D_xystat.spc']
         x     = [[np.nan],[np.nan],[0,100] ,[0,100] ]
         y     = [[np.nan],[np.nan],[0,0]   ,[0,0]   ]
         lon   = [[0,100] ,[0,100] ,[np.nan],[np.nan]]
@@ -47,10 +47,10 @@ class TestSuite(unittest.TestCase):
                  [np.nan],
                  [datetime.datetime(2016,1,1),datetime.datetime(2016,1,2),datetime.datetime(2016,1,3)],
                  [np.nan]]
-        file  = [r'./testdata/2D_lltime.spc',
-                 r'./testdata/2D_llstat.spc',
-                 r'./testdata/2D_xytime.spc',
-                 r'./testdata/2D_xystat.spc']
+        file  = [r'../data/2D_lltime.spc',
+                 r'../data/2D_llstat.spc',
+                 r'../data/2D_xytime.spc',
+                 r'../data/2D_xystat.spc']
         x     = [[np.nan],[np.nan],[0,100] ,[0,100] ]
         y     = [[np.nan],[np.nan],[0,0]   ,[0,0]   ]
         lon   = [[0,100] ,[0,100] ,[np.nan],[np.nan]]
