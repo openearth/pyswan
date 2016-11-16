@@ -318,7 +318,7 @@ class Spec2():
         plot 2D spectrum (to file) (assumes directions in degrees_north if empty).
         """ 
 
-        ic = range(len(self.direction)) + [0] # circular indices
+        ic = list(range(len(self.direction))) + [0] # circular indices
         
         import matplotlib.pyplot as plt
         fig, axs = plt.subplots(figsize=figsize, subplot_kw={'projection':'polar'})
