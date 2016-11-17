@@ -89,8 +89,8 @@ def directional_spreading(dirs,pdir,ms,units='deg'):
     Calculate directional spreading. 
     >> cdir = directional_spreading(dirs,pdir,ms,units='deg')
     where for example with pdir = 135
-    >> dirs = np.asanyarray([0, 45, 60] + list(90+np.arange(0,19)*5.) + \
-              [210,] + list(180+np.arange(1,5)*45.))
+    >> dirs = np.asanyarray([0, 45, 60] + list(90+np.arange(0,19)*5.) +
+    >>        [210,] + list(180+np.arange(1,5)*45.))
      
     """
     from math import gamma
@@ -110,7 +110,7 @@ def directional_spreading(dirs,pdir,ms,units='deg'):
     for i,v in enumerate(dirs):
         acos = np.cos((dirs[i] - pdir))
         if acos > 0:
-            cdir[i] = A1*np.max(acos**ms, 1e-10)
+            cdir[i] = A1*np.maximum(acos**ms, 1e-10)
     if units[0:3]=='deg':
         cdir = cdir*np.pi/180
     elif units[0:3]=='rad':
@@ -322,12 +322,16 @@ class Spec2():
         
         import matplotlib.pyplot as plt
         fig, axs = plt.subplots(figsize=figsize, subplot_kw={'projection':'polar'})
-        axs.pcolormesh(np.radians(self.direction)[ic], self.f, self.energy[it,ix,:,ic].T)
+        
+        if self.direction_units=='degrees_north':
+            axs.pcolormesh(np.radians(self.direction)[ic], self.f, self.energy[it,ix,:,ic].T)
+        else: # degrees_true or empty
+            axs.pcolormesh(90-self.direction[ic]         , self.f, self.energy[it,ix,:,ic].T)
 
         # construct title
         title_time, title_loc = None, None
-        if ~np.isnan(self.t[it]):
-            title_time = '%f' % self.t[it]
+        if isinstance(self.t[it],datetime.date):
+            title_time = '{:%Y-%m-%d %H:%M}'.format(self.t[it])
         if self.lat[ix] is not None and self.lon[ix] is not None:
             title_loc = '%0.4f $\mathrm{^\circ N}$, %0.4f $\mathrm{^\circ E}$' % (self.lat[ix], self.lon[ix])
         if title_time and title_loc:
@@ -343,10 +347,11 @@ class Spec2():
             
         axs.set_aspect('equal')
         axs.set_theta_offset(np.radians(90))
+        axs.set_theta_direction(-1)
         
         if not fname is None:
             fig.savefig(fname, fontsize=fontsize, dpi=dpi)
-            fig.close()
+            plt.close()
         else:
             return axs
 
@@ -585,7 +590,7 @@ class Spec0():
         
     def __repr__(self):
     
-        if type(self.Hs) is type(1.) or type(self.Hs) is type(1):
+        if type(self.Hs) is type(1.) or type(self.Hs) is type(1) or len(self.Hs)==1:
         
             return '<Spectrum0D  Hs='+str(self.Hs)+\
             ' Tp='+str(self.Tp)+\
